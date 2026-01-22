@@ -217,13 +217,21 @@ class Framework_Generator_Workers {
      * Validate citation with external APIs
      */
     private function validate_citation($article) {
+        $verifier = new Framework_Generator_Citation_Verifier();
+
         // Fetch URL to get metadata
-        $metadata = $this->fetch_url_metadata($article['url']);
+        $metadata = $verifier->fetch_url_metadata($article['url']);
+        $verifier->log_verification_attempt($article['url'], 'url_metadata', !empty($metadata));
 
         // Try CrossRef/OpenAlex for academic sources
         if ($this->is_academic_source($article['source_type'])) {
-            $api_metadata = $this->fetch_academic_metadata($article['title'], $article['url']);
-            $metadata = array_merge($metadata, $api_metadata);
+            $api_metadata = $verifier->fetch_academic_metadata($article['title'], $article['url']);
+            if ($api_metadata) {
+                $metadata = array_merge($metadata, $api_metadata);
+                $verifier->log_verification_attempt($article['url'], 'academic_api', true, 'Found via ' . (isset($api_metadata['doi']) ? 'DOI' : 'title search'));
+            } else {
+                $verifier->log_verification_attempt($article['url'], 'academic_api', false);
+            }
         }
 
         // Parse year from date with error handling
@@ -268,6 +276,8 @@ class Framework_Generator_Workers {
      *  - apa_string
      */
     private function fetch_url_metadata($url) {
+        // This method is now handled by Framework_Generator_Citation_Verifier
+        return array();
         if (empty($url)) {
             return array();
         }
@@ -360,6 +370,7 @@ class Framework_Generator_Workers {
      * CrossRef or OpenAlex APIs for academic citation metadata.
      */
     private function fetch_academic_metadata($title, $url) {
+        // This method is now handled by Framework_Generator_Citation_Verifier
         // Placeholder: In production, this would query CrossRef or OpenAlex APIs
         // Example: https://api.crossref.org/works?query.title=...
         // Example: https://api.openalex.org/works?filter=title.search:...
