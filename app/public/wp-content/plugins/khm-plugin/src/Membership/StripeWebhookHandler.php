@@ -3,6 +3,11 @@
 namespace KHM\Membership;
 
 class StripeWebhookHandler {
+    private const STATUS_TRIAL = 'trial';
+    private const STATUS_ACTIVE = 'active';
+    private const STATUS_PAST_DUE = 'past_due';
+    private const STATUS_PENDING_CANCEL = 'pending_cancel';
+    private const STATUS_CANCELED = 'canceled';
     private const DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60;
     private const DEFAULT_RATE_LIMIT_MAX_REQUESTS = 100;
     private const VALID_STATUSES = [ 'trial', 'active', 'past_due', 'pending_cancel', 'canceled' ];
@@ -27,6 +32,37 @@ class StripeWebhookHandler {
     }
 
     public function handle_request( \WP_REST_Request $req ) {
+        $payload = $req->get_body();
+        $sig_header = $this->get_signature_header( $req );
+        $event = null;
+
+        $skip_verification = (bool) apply_filters(
+            'khm_membership_webhook_skip_signature_verification',
+            false,
+            $payload,
+            $sig_header
+        );
+
+        // --- Signature Validation ---
+        if ( $skip_verification ) {
+            $event = json_decode($payload);
+        } else {
+            $webhook_secret = trim( (string) get_option('khm_stripe_webhook_secret', '') );
+            if ( '' === $webhook_secret ) {
+                error_log( 'Stripe webhook rejected: khm_stripe_webhook_secret is not configured.' );
+                return new \WP_REST_Response(['error' => 'Webhook secret is not configured'], 500);
+            }
+
+            try {
+                \Stripe\Stripe::setApiKey(get_option('khm_stripe_secret_key', ''));
+                $event = \Stripe\Webhook::constructEvent(
+                    $payload, $sig_header, $webhook_secret
+                );
+            } catch(\UnexpectedValueException $e) {
+                return new \WP_REST_Response(['error' => 'Invalid payload'], 400);
+            } catch(\Stripe\Exception\SignatureVerificationException $e) {
+                return new \WP_REST_Response(['error' => 'Invalid signature'], 400);
+            }
         $started_at = microtime( true );
         if ( $this->is_rate_limited() ) {
             $this->emit_telemetry( 'webhook.rate_limited', [ 'ip' => $this->get_client_ip() ] );
@@ -89,6 +125,27 @@ class StripeWebhookHandler {
             return;
         }
 
+        // --- Event Handling ---
+        $event_object = isset( $event->data ) && isset( $event->data->object ) ? $event->data->object : null;
+        if ( ! is_object( $event_object ) ) {
+            return new \WP_REST_Response(['error' => 'Invalid event payload object'], 400);
+        }
+
+        switch ($event->type) {
+            case 'checkout.session.completed':
+                $this->handle_checkout_session_completed($event_object);
+                break;
+            case 'invoice.paid':
+                $this->handle_invoice_paid($event_object);
+                break;
+            case 'invoice.payment_failed':
+                $this->handle_payment_failed($event_object);
+                break;
+            case 'customer.subscription.updated':
+                $this->handle_subscription_updated($event_object);
+                break;
+            case 'customer.subscription.deleted':
+                $this->handle_subscription_deleted($event_object);
         $event_id = isset( $job['event_id'] ) ? sanitize_text_field( (string) $job['event_id'] ) : '';
         $event_type = isset( $job['event_type'] ) ? sanitize_text_field( (string) $job['event_type'] ) : '';
         if ( '' === $event_id || '' === $event_type ) {
@@ -441,7 +498,9 @@ class StripeWebhookHandler {
         global $wpdb;
         $user_membership_table = $wpdb->prefix . 'user_membership';
 
+        $remote_status = isset($subscription->status) ? (string) $subscription->status : '';
         $update_data = [
+            'status' => $this->normalize_subscription_status( $remote_status ),
             'stripe_subscription_id' => $subscription->id,
         ];
 
@@ -464,6 +523,7 @@ class StripeWebhookHandler {
         }
 
         if ( isset($subscription->cancel_at_period_end) && $subscription->cancel_at_period_end ) {
+            $update_data['status'] = self::STATUS_PENDING_CANCEL;
             $update_data['status'] = 'pending_cancel';
             $update_data['cancel_at_period_end'] = 1;
             if ( isset($subscription->cancel_at) && $subscription->cancel_at ) {
@@ -545,6 +605,7 @@ class StripeWebhookHandler {
         $wpdb->update(
             $user_membership_table,
             [
+                'status' => self::STATUS_CANCELED,
                 'status' => 'canceled',
                 'cancelled_at' => current_time('mysql', 1)
             ],
@@ -599,6 +660,9 @@ class StripeWebhookHandler {
         return $user_id ? intval($user_id) : null;
     }
 
+    private function has_processed_event($event_id) {
+        $this->maybe_create_webhook_events_table();
+
     private function record_paid_attribution( int $user_id, int $plan_id, int $schedule_id ): void {
         global $wpdb;
         $table = $wpdb->prefix . 'promotion_attribution';
@@ -632,6 +696,84 @@ class StripeWebhookHandler {
         );
     }
 
+    private function mark_event_processed($event_id, $event_type) {
+        $this->maybe_create_webhook_events_table();
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'stripe_webhook_events';
+
+        $wpdb->query(
+            $wpdb->prepare(
+                "INSERT IGNORE INTO {$table} (event_id, event_type, processed_at) VALUES (%s, %s, %s)",
+                $event_id,
+                $event_type,
+                current_time('mysql', 1)
+            )
+        );
+    }
+
+    private function maybe_create_webhook_events_table(): void {
+        global $wpdb;
+        $table = $wpdb->prefix . 'stripe_webhook_events';
+
+        $charset_collate = $wpdb->get_charset_collate();
+        if ( $wpdb->get_var("SHOW TABLES LIKE '{$table}'") != $table ) {
+            $sql = "CREATE TABLE {$table} (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                event_id VARCHAR(255) UNIQUE NOT NULL,
+                event_type VARCHAR(100) NOT NULL,
+                processed_at DATETIME NOT NULL,
+                KEY event_id_idx (event_id)
+            ) {$charset_collate};";
+            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+            dbDelta($sql);
+        }
+    }
+
+    private function normalize_subscription_status( string $status ): string {
+        $normalized = strtolower( trim( $status ) );
+        if ( in_array( $normalized, [ 'trialing', 'trial' ], true ) ) {
+            return self::STATUS_TRIAL;
+        }
+        if ( in_array( $normalized, [ 'active' ], true ) ) {
+            return self::STATUS_ACTIVE;
+        }
+        if ( in_array( $normalized, [ 'past_due', 'unpaid' ], true ) ) {
+            return self::STATUS_PAST_DUE;
+        }
+        if ( in_array( $normalized, [ 'canceled', 'cancelled' ], true ) ) {
+            return self::STATUS_CANCELED;
+        }
+
+        return self::STATUS_PAST_DUE;
+    }
+
+    private function get_signature_header( \WP_REST_Request $req ): string {
+        if ( method_exists( $req, 'get_header' ) ) {
+            $header = (string) $req->get_header( 'stripe-signature' );
+            if ( '' !== $header ) {
+                return $header;
+            }
+        }
+
+        if ( method_exists( $req, 'get_headers' ) ) {
+            $headers = (array) $req->get_headers();
+            foreach ( [ 'stripe-signature', 'Stripe-Signature', 'HTTP_STRIPE_SIGNATURE' ] as $key ) {
+                if ( isset( $headers[ $key ] ) ) {
+                    $value = $headers[ $key ];
+                    if ( is_array( $value ) ) {
+                        return (string) reset( $value );
+                    }
+                    return (string) $value;
+                }
+            }
+        }
+
+        if ( isset( $_SERVER['HTTP_STRIPE_SIGNATURE'] ) ) {
+            return (string) $_SERVER['HTTP_STRIPE_SIGNATURE'];
+        }
+
+        return '';
     private function verify_event_signature( string $payload, string $sig_header ) {
         $skip_verification = (bool) apply_filters(
             'khm_membership_webhook_skip_signature_verification',
