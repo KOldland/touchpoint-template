@@ -1,0 +1,955 @@
+/**
+ * KHM Integration CSS for Social Strip
+ * Styles for enhanced functionality (loading states, messages, etc.)
+ */
+
+/* Button Loading States */
+.kss-social-strip .loading {
+    position: relative;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.kss-social-strip .loading .spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #333;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Button States */
+.kss-social-strip .disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+.kss-social-strip .saved {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.kss-social-strip .saved img {
+    filter: brightness(0) invert(1);
+}
+
+/* Credit Display */
+.kss-credits-display {
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+    text-align: center;
+}
+
+.kss-credits-display.low-credits {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* Cart Count Display */
+.kss-cart-indicator {
+    position: relative;
+    display: inline-block;
+}
+
+.kss-cart-count {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+    line-height: 18px;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Message System */
+.kss-message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 4px;
+    font-weight: 500;
+    z-index: 10050;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    max-width: 300px;
+    word-wrap: break-word;
+}
+
+.kss-message-success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.kss-message-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.kss-message-info {
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #2e7d32;
+}
+
+/* Enhanced Button Styling */
+.kss-social-strip .kss-icon,
+.kss-social-strip button {
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.kss-social-strip .kss-icon:hover,
+.kss-social-strip button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.kss-social-strip .kss-icon:active,
+.kss-social-strip button:active {
+    transform: translateY(0);
+}
+
+/* Price Display */
+.kss-price-display {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+    text-align: center;
+}
+
+.kss-price-display.member-price {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.kss-price-display.discount {
+    text-decoration: line-through;
+    color: #999;
+}
+
+/* Tooltips */
+.kss-social-strip [title] {
+    position: relative;
+}
+
+.kss-social-strip [title]:hover:after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-bottom: 5px;
+}
+
+.kss-social-strip [title]:hover:before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0,0,0,0.8);
+    z-index: 1000;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .kss-message {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+    
+    .kss-social-strip .kss-icon,
+    .kss-social-strip button {
+        margin-bottom: 10px;
+    }
+    
+    .kss-social-strip [title]:hover:after,
+    .kss-social-strip [title]:hover:before {
+        display: none;
+    }
+}
+
+/* Member Status Indicators */
+.kss-member-indicator {
+    font-size: 10px;
+    font-weight: bold;
+    color: #28a745;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.kss-guest-indicator {
+    font-size: 10px;
+    color: #6c757d;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+/* Animation for successful actions */
+@keyframes success-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.kss-social-strip .success-action {
+    animation: success-pulse 0.3s ease;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .kss-message-success {
+        background: #1e3a2e;
+        color: #a3d4b0;
+        border-color: #2f5233;
+    }
+    
+    .kss-message-error {
+        background: #3d1a1a;
+        color: #e8b4b8;
+        border-color: #5a2d2d;
+    }
+    
+    .kss-message-info {
+        background: #1f3b24;
+        color: #c8e6c9;
+        border-color: #2e7d32;
+    }
+    
+    .kss-social-strip .loading .spinner {
+        border-color: #666;
+        border-top-color: #fff;
+    }
+}
+
+/* Gift Modal Styles */
+.kss-modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.kss-modal-content {
+    background-color: #fff;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.kss-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+    color: #1f2937;
+    border-radius: 8px 8px 0 0;
+}
+
+.kss-modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.kss-modal-close {
+    color: #6b7280;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.kss-modal-close:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.kss-modal-body {
+    padding: 24px;
+}
+
+.gift-article-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+    border-left: 4px solid #667eea;
+}
+
+.gift-article-info h3 {
+    margin: 0 0 10px 0;
+    color: #343a40;
+    font-size: 1.2rem;
+}
+
+.gift-article-info .article-excerpt {
+    color: #6c757d;
+    margin: 0 0 15px 0;
+    line-height: 1.5;
+}
+
+.gift-price {
+    font-size: 1.1rem;
+    color: #28a745;
+    font-weight: 600;
+}
+
+.gift-price small {
+    color: #6c757d;
+    font-weight: normal;
+    margin-left: 10px;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #343a40;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* Message Templates */
+.message-templates {
+    margin-top: 10px;
+}
+
+.message-templates label {
+    font-size: 13px;
+    color: #6c757d;
+    margin-bottom: 8px;
+}
+
+.template-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.template-btn {
+    background: #e9ecef;
+    border: 1px solid #dee2e6;
+    color: #495057;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.template-btn:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+    transform: translateY(-1px);
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+.form-actions button {
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    font-size: 14px;
+}
+
+.btn-cancel {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-cancel:hover {
+    background: #5a6268;
+    transform: translateY(-1px);
+}
+
+.btn-send-gift {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+}
+
+.btn-send-gift:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-send-gift:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* New Gift Modal Layout */
+.kss-gift-modal .kss-modal-body {
+    padding: 24px;
+}
+
+.kss-gift-summary {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.kss-gift-article {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.kss-gift-thumb {
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+    background: #e9ecef;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+}
+
+.kss-gift-thumb.is-empty {
+    background: #e2e2e2;
+}
+
+.kss-gift-title-wrap h3 {
+    margin: 0 0 6px;
+    font-size: 1rem;
+    color: #1d1d1d;
+}
+
+.kss-gift-price {
+    color: #2e7d32;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.kss-gift-note {
+    margin: 12px 0 20px;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.kss-gift-form .kss-gift-field {
+    margin-bottom: 16px;
+}
+
+.kss-gift-form label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #2c2c2c;
+}
+
+.kss-gift-form input,
+.kss-gift-form textarea {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 14px;
+}
+
+.kss-gift-email-input {
+    display: flex;
+    gap: 8px;
+}
+
+.kss-gift-add-email {
+    width: 40px;
+    border: none;
+    border-radius: 8px;
+    background: #2e7d32;
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.kss-gift-add-email:hover {
+    background: #256628;
+}
+
+.kss-gift-helper {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.kss-gift-recipient-list {
+    border: 1px dashed #d1d5db;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 16px;
+    min-height: 44px;
+}
+
+.kss-gift-recipient {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #eef1f4;
+    font-size: 0.92rem;
+}
+
+.kss-gift-recipient:last-child {
+    border-bottom: none;
+}
+
+.kss-gift-remove {
+    border: none;
+    background: transparent;
+    color: #9b1c1c;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.kss-gift-empty {
+    color: #9aa0a6;
+    font-size: 0.9rem;
+}
+
+.kss-gift-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0 18px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 1rem;
+}
+
+.kss-gift-total strong {
+    color: #2e7d32;
+    font-weight: 700;
+}
+
+.kss-gift-payment h4 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+}
+
+.kss-gift-errors {
+    display: none;
+    margin-top: 10px;
+    color: #b42318;
+    font-size: 0.9rem;
+}
+
+.kss-gift-payment .btn-send-gift {
+    width: 100%;
+    background: #2e7d32;
+    box-shadow: none;
+    padding: 12px 18px;
+    border-radius: 8px;
+}
+
+.kss-gift-payment .btn-send-gift:hover:not(:disabled) {
+    background: #256628;
+    transform: none;
+    box-shadow: none;
+}
+
+.kss-gift-confirm .kss-modal-body {
+    padding: 24px;
+}
+
+.kss-gift-confirm-message {
+    margin: 0 0 16px;
+    font-size: 0.98rem;
+    color: #2f2f2f;
+}
+
+.kss-gift-confirm-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin-bottom: 18px;
+}
+
+.kss-gift-confirm-table th,
+.kss-gift-confirm-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.kss-gift-confirm-table th {
+    font-weight: 600;
+    color: #1f2937;
+    background: #f7f7f7;
+}
+
+.kss-gift-confirm-table code {
+    display: inline-block;
+    padding: 4px 6px;
+    background: #f2f4f7;
+    border-radius: 4px;
+    font-family: "Courier New", monospace;
+}
+
+.kss-gift-confirm-note {
+    display: none;
+    margin: 0 0 12px;
+    font-size: 0.9rem;
+    color: #2e7d32;
+}
+
+.kss-gift-confirm-note.is-visible {
+    display: block;
+}
+
+.kss-gift-confirm .kss-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.kss-gift-confirm .btn-send-gift {
+    background: #2e7d32;
+    box-shadow: none;
+}
+
+.kss-gift-confirm .btn-send-gift:hover:not(:disabled) {
+    background: #256628;
+}
+
+@media (max-width: 768px) {
+    .kss-gift-confirm .kss-modal-actions {
+        flex-direction: column;
+    }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .kss-modal-content {
+        margin: 10px;
+        width: calc(100% - 20px);
+        max-width: none;
+    }
+    
+    .kss-modal-body {
+        padding: 20px;
+    }
+    
+    .template-buttons {
+        justify-content: center;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions button {
+        width: 100%;
+    }
+
+    .kss-gift-article {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .kss-gift-email-input {
+        flex-direction: column;
+    }
+
+    .kss-gift-add-email {
+        width: 100%;
+    }
+}
+
+/* Dark Mode Support for Modal */
+@media (prefers-color-scheme: dark) {
+    .kss-modal-content {
+        background-color: #2c3e50;
+        color: #ecf0f1;
+    }
+    
+    .gift-article-info {
+        background: #34495e;
+        color: #ecf0f1;
+    }
+    
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        background: #34495e;
+        border-color: #4a5f7a;
+        color: #ecf0f1;
+    }
+    
+    .template-btn {
+        background: #34495e;
+        border-color: #4a5f7a;
+        color: #ecf0f1;
+    }
+}
+
+/* Download Confirmation Modal Styles */
+#kss-download-modal .kss-modal-content {
+    max-width: 450px;
+}
+
+#kss-download-modal .kss-modal-header {
+    background: linear-gradient(135deg, #6d0b0b 0%, #8b1a1a 100%);
+}
+
+#kss-download-modal .kss-modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.download-article-info {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #6d0b0b;
+}
+
+.download-article-info h4 {
+    margin: 0;
+    color: #343a40;
+    font-size: 1.1rem;
+    line-height: 1.4;
+}
+
+.download-credit-info {
+    background: #e8f4fd;
+    padding: 15px 20px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.download-credit-info p {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+.download-credit-info p:last-child {
+    margin-bottom: 0;
+}
+
+.download-credit-info .remaining-after {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.download-notice {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 20px;
+    padding: 10px 15px;
+    background: #fff3cd;
+    border-radius: 4px;
+    border-left: 3px solid #ffc107;
+}
+
+.kss-modal-actions,
+.khm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.kss-modal-actions button,
+.khm-modal-actions button {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.kss-modal-actions .btn-cancel,
+.khm-modal-actions .btn-cancel {
+    display: none;
+}
+
+.kss-modal-actions .btn-confirm-download,
+.khm-modal-actions .btn-confirm-download {
+    background: linear-gradient(135deg, #6d0b0b 0%, #8b1a1a 100%);
+    color: white;
+}
+
+.kss-modal-actions .btn-confirm-download:hover,
+.khm-modal-actions .btn-confirm-download:hover {
+    background: linear-gradient(135deg, #8b1a1a 0%, #a52525 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(109, 11, 11, 0.25);
+}
+
+/* Dark Mode Support for Download Modal */
+@media (prefers-color-scheme: dark) {
+    .download-article-info {
+        background: #34495e;
+    }
+    
+    .download-article-info h4 {
+        color: #ecf0f1;
+    }
+    
+    .download-credit-info {
+        background: #2c3e50;
+        border: 1px solid #4a5f7a;
+    }
+    
+    .download-credit-info p {
+        color: #ecf0f1;
+    }
+    
+    .download-notice {
+        background: #463a1f;
+        color: #ffe066;
+    }
+}
+/* ==========================================================================
+   Save Notification Toast
+   ========================================================================== */
+
+.kss-save-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100000;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.kss-save-notification.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.kss-notification-icon {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.kss-notification-success .kss-notification-icon {
+    color: #4caf50;
+}
+
+.kss-notification-error .kss-notification-icon {
+    color: #f44336;
+}
+
+.kss-notification-info .kss-notification-icon {
+    color: #2e7d32;
+}

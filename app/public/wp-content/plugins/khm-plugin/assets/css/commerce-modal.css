@@ -1,0 +1,399 @@
+/**
+ * Unified Commerce Modal Styles
+ * 
+ * Provides consistent modal experience for cart and checkout
+ */
+
+/* Generic trigger button used by widget/shortcode/block wrappers. */
+.khm-commerce-checkout-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 10px 22px;
+    border: 0;
+    border-radius: 4px;
+    background: #0b4c6b;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.khm-commerce-checkout-trigger:hover {
+    opacity: 0.92;
+}
+
+/* Modal Overlay */
+.khm-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.khm-modal-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: modalSlideUp 0.3s ease-out;
+}
+
+@keyframes modalSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Modal Header */
+.khm-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.khm-modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.khm-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.khm-modal-close:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+/* Modal Content */
+.khm-modal-content {
+    padding: 24px;
+}
+
+/* Article Summary */
+.khm-article-summary {
+    margin-bottom: 24px;
+    padding: 16px;
+    background-color: #f9fafb;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.khm-article-header {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.khm-article-thumb {
+    width: 120px;
+    height: 90px;
+    border-radius: 6px;
+    background: #e5e7eb;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: none;
+    background-size: cover;
+    background-position: center;
+}
+
+.khm-article-thumb.has-image {
+    display: block;
+}
+
+.khm-article-thumb.is-empty {
+    display: none;
+}
+
+.khm-article-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.khm-article-summary h4 {
+    margin: 0 0 12px 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.khm-article-note {
+    margin: 0 0 20px 0;
+    font-size: 0.9rem;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.khm-article-note {
+    margin: 0 0 12px 0;
+    font-size: 0.9rem;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.khm-price-display {
+    margin-bottom: 16px;
+}
+
+.khm-member-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #059669;
+    margin-right: 10px;
+}
+
+.khm-regular-price {
+    text-decoration: line-through;
+    color: #6b7280;
+    font-size: 1.1rem;
+}
+
+/* Payment Section */
+.khm-payment-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.khm-payment-section h4 {
+    margin: 0 0 16px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.khm-billing-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.khm-billing-fields input {
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+}
+
+.khm-billing-fields input:focus {
+    outline: none;
+    border-color: #1d4ed8;
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+}
+
+.khm-card-field {
+    margin-bottom: 20px;
+}
+
+#khm-payment-element {
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    transition: border-color 0.2s;
+}
+
+#khm-payment-element:focus-within {
+    border-color: #2e7d32;
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.15);
+}
+
+.khm-error {
+    color: #ef4444;
+    font-size: 0.9rem;
+    margin-top: 8px;
+    display: none;
+}
+
+/* Modal Actions */
+.khm-modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.khm-btn-primary {
+    flex: 1;
+    background: #2e7d32;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.khm-btn-primary:hover:not(:disabled) {
+    background: #256b2b;
+}
+
+.khm-btn-primary:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.khm-btn-secondary {
+    background: #ffffff;
+    color: #2e7d32;
+    border: 1px solid #2e7d32;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.khm-btn-secondary:hover {
+    background: #e7f5ea;
+    border-color: #256b2b;
+    color: #256b2b;
+}
+
+/* Messages */
+.khm-messages {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 6px;
+    display: none;
+}
+
+.khm-messages .error {
+    background: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #fecaca;
+    padding: 12px;
+    border-radius: 6px;
+    display: block;
+}
+
+.khm-messages .success {
+    background: #f0fdf4;
+    color: #059669;
+    border: 1px solid #bbf7d0;
+    padding: 12px;
+    border-radius: 6px;
+    display: block;
+}
+
+/* Body lock when modal is open */
+body.khm-modal-open {
+    overflow: hidden;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .khm-modal-overlay {
+        padding: 10px;
+    }
+    
+    .khm-modal-container {
+        margin: 0;
+        border-radius: 0;
+        max-height: 100vh;
+    }
+    
+    .khm-billing-fields {
+        grid-template-columns: 1fr;
+    }
+    
+    .khm-modal-actions {
+        flex-direction: column;
+    }
+
+    .khm-article-header {
+        flex-direction: column;
+    }
+
+    .khm-article-thumb {
+        width: 100%;
+        height: 160px;
+    }
+    
+    .khm-cart-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .khm-cart-item .khm-price {
+        margin-right: 0;
+    }
+}
+
+/* Cart count badge */
+.khm-tab-btn[data-tab="cart"] {
+    position: relative;
+}
+
+#khm-cart-count {
+    background: #ef4444;
+    color: white;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+/* Loading states */
+.khm-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.khm-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #1d4ed8;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
