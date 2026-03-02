@@ -177,8 +177,8 @@ class MembershipCheckoutHandler {
         if (!empty($profile['company'])) {
             $metadata['profile_company'] = $profile['company'];
         }
-        if (!empty($profile['marketing_opt_in'])) {
-            $metadata['profile_marketing_optin'] = '1';
+        if (array_key_exists('marketing_opt_in', $profile)) {
+            $metadata['profile_marketing_optin'] = !empty($profile['marketing_opt_in']) ? '1' : '0';
         }
         if ($guest_email && is_email($guest_email)) {
             $metadata['guest_email'] = $guest_email;
@@ -429,11 +429,6 @@ class MembershipCheckoutHandler {
 
         $incomingCode = sanitize_text_field((string) ($payload['applied_promo_code'] ?? $payload['promo_code'] ?? ''));
         $incomingPromoId = sanitize_text_field((string) ($payload['applied_promo'] ?? $payload['promo_id'] ?? ''));
-        $incomingStripePromotionCode = sanitize_text_field((string) ($payload['stripe_promotion_code'] ?? ''));
-
-        if ($incomingStripePromotionCode !== '') {
-            $stripePromotionCode = $incomingStripePromotionCode;
-        }
 
         if ($incomingCode !== '') {
             if (!$this->discounts) {

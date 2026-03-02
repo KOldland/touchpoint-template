@@ -54,7 +54,7 @@
                                         <input id="khm-last-name" name="khm_last_name" type="text" class="regular-text" />
                                     </div>
                                     <div class="khm-field-group">
-                                        <label for="khm-mobile">Mobile (24A)</label>
+                                        <label for="khm-mobile">Mobile number</label>
                                         <input id="khm-mobile" name="khm_mobile" type="tel" class="regular-text" placeholder="+44 7123 456789" />
                                     </div>
                                     <div class="khm-field-group">

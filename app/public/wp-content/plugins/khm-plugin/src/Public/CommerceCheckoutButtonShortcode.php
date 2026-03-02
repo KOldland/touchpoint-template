@@ -91,6 +91,15 @@ class CommerceCheckoutButtonShortcode {
 				(string) filemtime( $js_path ),
 				true
 			);
+			wp_localize_script(
+				'khm-commerce-modal',
+				'khmCommerce',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'nonce' => wp_create_nonce( 'khm_commerce' ),
+					'stripe_key' => get_option( 'khm_stripe_publishable_key', '' ),
+				)
+			);
 		}
 
 		$css_path = $plugin_path . 'assets/css/commerce-modal.css';
@@ -102,16 +111,6 @@ class CommerceCheckoutButtonShortcode {
 				(string) filemtime( $css_path )
 			);
 		}
-
-		wp_localize_script(
-			'khm-commerce-modal',
-			'khmCommerce',
-			array(
-				'ajax_url' => admin_url( 'admin-ajax.php' ),
-				'nonce' => wp_create_nonce( 'khm_commerce' ),
-				'stripe_key' => get_option( 'khm_stripe_publishable_key', '' ),
-			)
-		);
 
 		$this->assets_enqueued = true;
 	}
