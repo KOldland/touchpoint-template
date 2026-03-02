@@ -295,6 +295,102 @@ class EntityManager {
         
         return true;
     }
+
+    /**
+     * Suggest sameAs candidates for an entity name.
+     *
+     * @param string $name Entity name.
+     * @param string $context Optional context for ranking.
+     * @return array
+     */
+    public function suggest_same_as_for_name( $name, $context = '' ) {
+        if ( ! class_exists( '\\KHM_SEO\\GEO\\Entity\\WikidataResolver' ) ) {
+            return array();
+        }
+
+        $resolver = new \KHM_SEO\GEO\Entity\WikidataResolver();
+        return $resolver->suggest( $name, $context );
+    }
+
+    /**
+     * Merge and persist sameAs entries for an entity.
+     *
+     * @param int $entity_id Entity ID.
+     * @param array $same_as SameAs entries.
+     * @return bool
+     */
+    public function set_same_as( $entity_id, $same_as ) {
+        $entity = $this->get_entity( $entity_id );
+        if ( ! $entity ) {
+            return false;
+        }
+
+        $existing = is_array( $entity->same_as ) ? $entity->same_as : array();
+        $merged = array_merge( $existing, is_array( $same_as ) ? $same_as : array() );
+
+        $deduped = array();
+        $seen = array();
+        foreach ( $merged as $entry ) {
+            if ( ! is_array( $entry ) ) {
+                continue;
+            }
+            $key = strtolower( ( $entry['source'] ?? '' ) . '|' . ( $entry['id'] ?? '' ) );
+            if ( ! $key || isset( $seen[ $key ] ) ) {
+                continue;
+            }
+            $seen[ $key ] = true;
+            $deduped[] = $entry;
+        }
+
+        return $this->update_entity( $entity_id, array( 'same_as' => $deduped ) );
+    }
+
+    /**
+     * Commit sameAs data for a canonical entity name.
+     *
+     * @param array $entity_data {canonical, qid, label, provider, type, scope, status}
+     * @return array{entity:object|null,same_as:array}|false
+     */
+    public function commit_same_as( $entity_data ) {
+        $canonical = sanitize_text_field( $entity_data['canonical'] ?? '' );
+        $qid       = sanitize_text_field( $entity_data['qid'] ?? '' );
+        $label     = sanitize_text_field( $entity_data['label'] ?? '' );
+        $provider  = sanitize_text_field( $entity_data['provider'] ?? 'wikidata' );
+
+        if ( ! $canonical || ! $qid ) {
+            return false;
+        }
+
+        $entity = $this->find_entity_by_canonical( $canonical, 'site' );
+        if ( ! $entity ) {
+            $entity_id = $this->create_entity( array(
+                'canonical' => $canonical,
+                'type'      => $entity_data['type'] ?? 'Thing',
+                'scope'     => $entity_data['scope'] ?? 'site',
+                'status'    => $entity_data['status'] ?? 'active',
+            ) );
+            if ( ! $entity_id ) {
+                return false;
+            }
+        } else {
+            $entity_id = $entity->id;
+        }
+
+        $same_as_entry = array(
+            'source' => $provider,
+            'id'     => $qid,
+            'url'    => 'https://www.wikidata.org/wiki/' . $qid,
+            'label'  => $label,
+        );
+
+        $this->set_same_as( $entity_id, array( $same_as_entry ) );
+        $resolved_entity = $this->get_entity( $entity_id );
+
+        return array(
+            'entity'  => $resolved_entity,
+            'same_as' => $same_as_entry,
+        );
+    }
     
     /**
      * Get entity by ID

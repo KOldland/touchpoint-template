@@ -19,6 +19,14 @@
  * @package WordPress
  */
 
+// Session path will be configured by 000-session-config.php mu-plugin
+// This ensures it loads before any plugins try to start sessions
+
+// Ensure WP_CONTENT_DIR is defined for Local / custom setups
+if ( ! defined( 'WP_CONTENT_DIR' ) ) {
+	define( 'WP_CONTENT_DIR', __DIR__ . '/wp-content' );
+}
+
 // ** Database settings - You can get this info from your web host ** //
 /** The name of the database for WordPress */
 define( 'DB_NAME', 'local' );
@@ -30,15 +38,37 @@ define( 'DB_USER', 'root' );
 define( 'DB_PASSWORD', 'root' );
 
 /** Database hostname */
-define( 'DB_HOST', 'localhost:/Users/krisoldland/Library/Application Support/Local/run/wIie9Yz4U/mysql/mysqld.sock' );
+$env_db_host = getenv( 'TEMP_DB_HOST' );
+if ( ! $env_db_host ) {
+	$env_db_host = getenv( 'DB_HOST' );
+}
+
+if ( $env_db_host ) {
+	define( 'DB_HOST', $env_db_host );
+} else {
+	$local_run_base   = getenv( 'LOCAL_RUN_BASE' );
+	$local_run_base   = $local_run_base ? $local_run_base : '/Users/krisoldland/Library/Application Support/Local/run';
+	$socket_candidates = glob( rtrim( $local_run_base, '/' ) . '/*/mysql/mysqld.sock' );
+
+	if ( ! empty( $socket_candidates ) ) {
+		usort(
+			$socket_candidates,
+			static function ( $a, $b ) {
+				return ( filemtime( $b ) ?: 0 ) <=> ( filemtime( $a ) ?: 0 );
+			}
+		);
+		define( 'DB_HOST', 'localhost:' . $socket_candidates[0] );
+	} else {
+		// Fallback for environments using TCP MySQL on localhost.
+		define( 'DB_HOST', '127.0.0.1' );
+	}
+}
 
 /** Database charset to use in creating database tables. */
 define( 'DB_CHARSET', 'utf8' );
 
 /** The database collate type. Don't change this if in doubt. */
 define( 'DB_COLLATE', '' );
-
-define( 'WP_CONTENT_DIR', dirname(__FILE__) . '/wp-content' );
 
 /**#@+
  * Authentication unique keys and salts.
@@ -93,8 +123,12 @@ if ( ! defined( 'WP_DEBUG' ) ) {
 	define( 'WP_DEBUG', true );
 }
 
+// Only enable debug logging in development/local environments
+$is_dev_environment = defined( 'WP_ENVIRONMENT_TYPE' ) && 
+                      in_array( WP_ENVIRONMENT_TYPE, array( 'local', 'development' ), true );
+
 if ( ! defined( 'WP_DEBUG_LOG' ) ) {
-	define( 'WP_DEBUG_LOG', __DIR__ . '/wp-content/debug-wsod.log' );
+	define( 'WP_DEBUG_LOG', $is_dev_environment );
 }
 
 if ( ! defined( 'WP_DEBUG_DISPLAY' ) ) {
