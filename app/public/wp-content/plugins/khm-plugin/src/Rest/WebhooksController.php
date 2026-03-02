@@ -982,17 +982,17 @@ class WebhooksController {
 	 * @return string
 	 */
 	private function extract_checkout_session_email( object $session, array $metadata = array() ): string {
-		if ( isset( $metadata['guest_email'] ) ) {
-			$email = sanitize_email( (string) $metadata['guest_email'] );
-			if ( $email && is_email( $email ) ) {
-				return $email;
-			}
-		}
 		if ( isset( $session->customer_details ) && isset( $session->customer_details->email ) ) {
 			return (string) $session->customer_details->email;
 		}
 		if ( isset( $session->customer_email ) ) {
 			return (string) $session->customer_email;
+		}
+		if ( isset( $metadata['guest_email'] ) ) {
+			$email = sanitize_email( (string) $metadata['guest_email'] );
+			if ( $email && is_email( $email ) ) {
+				return $email;
+			}
 		}
 		return '';
 	}
