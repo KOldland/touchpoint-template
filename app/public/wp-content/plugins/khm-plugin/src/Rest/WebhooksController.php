@@ -1124,7 +1124,7 @@ class WebhooksController {
 		if ( $subscription && isset( $subscription->status ) ) {
 			$status = (string) $subscription->status;
 			if ( $status === 'trialing' ) {
-				return 'trialing';
+				return 'trial';
 			}
 			if ( $status === 'active' ) {
 				return 'active';

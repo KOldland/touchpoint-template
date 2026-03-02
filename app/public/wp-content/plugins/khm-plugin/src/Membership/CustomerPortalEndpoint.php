@@ -19,7 +19,7 @@ class CustomerPortalEndpoint {
         if ( ! is_user_logged_in() ) {
             return new \WP_Error(
                 'rest_forbidden',
-                __( 'Authentication required.', 'khm' ),
+                __( 'Authentication required.', 'khm-membership' ),
                 [ 'status' => 401 ]
             );
         }
@@ -29,7 +29,7 @@ class CustomerPortalEndpoint {
         if ( $requested_user_id > 0 && $requested_user_id !== $current_user_id && ! current_user_can( 'manage_options' ) ) {
             return new \WP_Error(
                 'rest_forbidden',
-                __( 'You can only access your own customer portal.', 'khm' ),
+                __( 'You can only access your own customer portal.', 'khm-membership' ),
                 [ 'status' => 403 ]
             );
         }
@@ -61,7 +61,8 @@ class CustomerPortalEndpoint {
             return new \WP_REST_Response( [ 'error' => 'stripe_not_configured' ], 500 );
         }
 
-        $return_url = esc_url_raw( (string) $request->get_param( 'return_url' ) );
+        $raw_return_url = (string) $request->get_param( 'return_url' );
+        $return_url = wp_validate_redirect( $raw_return_url, '' );
         if ( '' === $return_url ) {
             $return_url = home_url( '/membership/manage' );
         }
