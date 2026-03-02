@@ -97,22 +97,56 @@ class WebhookEventsPage {
 
     private function requeue_event( string $event_id ): void {
         $row = ProcessedWebhook::get_event( $event_id );
-        if ( ! $row || empty( $row['payload'] ) ) {
-            ProcessedWebhook::mark_failed( $event_id, 'Admin requeue failed: payload missing.' );
+        if ( ! $row ) {
+            ProcessedWebhook::mark_failed( $event_id, 'Admin requeue failed: event record not found.' );
             return;
         }
 
-        $event = json_decode( (string) $row['payload'], true );
+        $event = null;
+
+        // Try stored payload first if present and valid JSON.
+        if ( ! empty( $row['payload'] ) ) {
+            $decoded = json_decode( (string) $row['payload'], true );
+            if ( is_array( $decoded ) && ! empty( $decoded['type'] ) ) {
+                $event = $decoded;
+            }
+        }
+
+        // If payload is missing, truncated, or invalid, re-fetch from Stripe.
         if ( ! is_array( $event ) || empty( $event['type'] ) ) {
-            ProcessedWebhook::mark_failed( $event_id, 'Admin requeue failed: payload parse error.' );
+            $stripe_client = apply_filters( 'khm_membership_stripe_client', null );
+
+            // Fallback: build a StripeClient from the stored API key if the filter provides none.
+            if ( ! ( $stripe_client instanceof \Stripe\StripeClient ) && class_exists( '\Stripe\StripeClient' ) ) {
+                $secret = (string) get_option( 'khm_stripe_secret_key', '' );
+                if ( '' !== $secret ) {
+                    $stripe_client = new \Stripe\StripeClient( $secret );
+                }
+            }
+
+            if ( $stripe_client instanceof \Stripe\StripeClient ) {
+                try {
+                    $stripe_event = $stripe_client->events->retrieve( $event_id, [] );
+                    if ( $stripe_event ) {
+                        $event = $stripe_event->toArray();
+                    }
+                } catch ( \Exception $e ) {
+                    ProcessedWebhook::mark_failed( $event_id, 'Admin requeue failed: could not retrieve event from Stripe (' . $e->getMessage() . ').' );
+                    return;
+                }
+            }
+        }
+
+        if ( ! is_array( $event ) || empty( $event['type'] ) ) {
+            ProcessedWebhook::mark_failed( $event_id, 'Admin requeue failed: payload missing or could not be reconstructed.' );
             return;
         }
 
         $job = [
-            'event_id' => $event_id,
-            'event_type' => sanitize_text_field( (string) $event['type'] ),
+            'event_id'    => $event_id,
+            'event_type'  => sanitize_text_field( (string) $event['type'] ),
             'data_object' => isset( $event['data']['object'] ) && is_array( $event['data']['object'] ) ? $event['data']['object'] : [],
-            'trace_id' => wp_generate_uuid4(),
+            'trace_id'    => wp_generate_uuid4(),
         ];
 
         ProcessedWebhook::mark_processing( $event_id, 'Requeued by admin.' );

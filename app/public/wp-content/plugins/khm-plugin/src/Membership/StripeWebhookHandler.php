@@ -193,7 +193,7 @@ class StripeWebhookHandler {
 
         $mode = strtolower( (string) ( $session->mode ?? '' ) );
         if ( ! in_array( $mode, [ 'subscription', 'payment' ], true ) ) {
-            $this->audit_handler( 'checkout.session.completed', $operation_key, $session_id, null, 'ignored', 'Unsupported checkout mode: ' . $mode );
+            $this->audit_handler( $event_id, 'checkout.session.completed', $operation_key, $session_id, null, 'ignored', 'Unsupported checkout mode: ' . $mode );
             $this->mark_operation_succeeded( $operation_key );
             return;
         }
@@ -218,6 +218,7 @@ class StripeWebhookHandler {
             }
             if ( ! TierRegistry::validate_price_match( $tier_slug, $metadata_price_id ) ) {
                 $this->audit_handler(
+                    $event_id,
                     'checkout.session.completed',
                     $operation_key,
                     $session_id,
@@ -279,6 +280,7 @@ class StripeWebhookHandler {
             ] );
 
             $this->audit_handler(
+                $event_id,
                 'checkout.session.completed',
                 $operation_key,
                 $session_id,
@@ -304,6 +306,7 @@ class StripeWebhookHandler {
             'payment_type' => 'credits',
         ] );
         $this->audit_handler(
+            $event_id,
             'checkout.session.completed',
             $operation_key,
             $session_id,
@@ -326,7 +329,7 @@ class StripeWebhookHandler {
         }
         $subscription_id = isset( $invoice->subscription ) ? (string) $invoice->subscription : '';
         if ( '' !== $subscription_id && $this->is_stale_subscription_event( $subscription_id, $event_created ) ) {
-            $this->audit_handler( 'invoice.paid', $operation_key, $invoice_id, null, 'ignored', 'Stale invoice.paid ignored by event ordering guard.', [ 'subscription_id' => $subscription_id ] );
+            $this->audit_handler( $event_id, 'invoice.paid', $operation_key, $invoice_id, null, 'ignored', 'Stale invoice.paid ignored by event ordering guard.', [ 'subscription_id' => $subscription_id ] );
             $this->mark_operation_succeeded( $operation_key );
             return;
         }
@@ -364,7 +367,7 @@ class StripeWebhookHandler {
             $this->update_subscription_event_cursor( $subscription_id, $event_created );
         }
         $this->emit_telemetry( 'membership.renewal', [ 'user_id' => $user_id, 'invoice_id' => $invoice_id, 'subscription_id' => $subscription_id ] );
-        $this->audit_handler( 'invoice.paid', $operation_key, $invoice_id, $user_id, 'success', 'Invoice paid applied.', [ 'subscription_id' => $subscription_id ] );
+        $this->audit_handler( $event_id, 'invoice.paid', $operation_key, $invoice_id, $user_id, 'success', 'Invoice paid applied.', [ 'subscription_id' => $subscription_id ] );
         $this->mark_operation_succeeded( $operation_key );
     }
 
@@ -379,7 +382,7 @@ class StripeWebhookHandler {
         }
         $subscription_id = isset( $invoice->subscription ) ? (string) $invoice->subscription : '';
         if ( '' !== $subscription_id && $this->is_stale_subscription_event( $subscription_id, $event_created ) ) {
-            $this->audit_handler( 'invoice.payment_failed', $operation_key, $invoice_id, null, 'ignored', 'Stale invoice.payment_failed ignored by event ordering guard.', [ 'subscription_id' => $subscription_id ] );
+            $this->audit_handler( $event_id, 'invoice.payment_failed', $operation_key, $invoice_id, null, 'ignored', 'Stale invoice.payment_failed ignored by event ordering guard.', [ 'subscription_id' => $subscription_id ] );
             $this->mark_operation_succeeded( $operation_key );
             return;
         }
@@ -411,7 +414,7 @@ class StripeWebhookHandler {
         }
         do_action( 'khm_membership_invoice_payment_failed', $user_id, $invoice );
         $this->emit_telemetry( 'membership.payment_failed', [ 'user_id' => $user_id, 'invoice_id' => $invoice_id, 'reason' => $failure_reason ] );
-        $this->audit_handler( 'invoice.payment_failed', $operation_key, $invoice_id, $user_id, 'success', 'Invoice payment failure applied.', [ 'reason' => $failure_reason ] );
+        $this->audit_handler( $event_id, 'invoice.payment_failed', $operation_key, $invoice_id, $user_id, 'success', 'Invoice payment failure applied.', [ 'reason' => $failure_reason ] );
         $this->mark_operation_succeeded( $operation_key );
     }
 
@@ -425,7 +428,7 @@ class StripeWebhookHandler {
             return;
         }
         if ( $this->is_stale_subscription_event( $subscription_id, $event_created ) ) {
-            $this->audit_handler( 'customer.subscription.updated', $operation_key, $subscription_id, null, 'ignored', 'Stale subscription update ignored by event ordering guard.' );
+            $this->audit_handler( $event_id, 'customer.subscription.updated', $operation_key, $subscription_id, null, 'ignored', 'Stale subscription update ignored by event ordering guard.' );
             $this->mark_operation_succeeded( $operation_key );
             return;
         }
@@ -521,6 +524,7 @@ class StripeWebhookHandler {
             $this->emit_telemetry( 'membership.subscription_updated', [ 'user_id' => $user_id, 'subscription_id' => $subscription_id, 'status' => $status ] );
         }
         $this->audit_handler(
+            $event_id,
             'customer.subscription.updated',
             $operation_key,
             $subscription_id,
@@ -566,6 +570,7 @@ class StripeWebhookHandler {
         if ( ! $credit_refund_applied ) {
             // Subscription/system refund: audit only, no auto-cancel here.
             $this->audit_handler(
+                $event_id,
                 'charge.refunded',
                 $operation_key,
                 $charge_id,
@@ -695,9 +700,10 @@ class StripeWebhookHandler {
         $window_seconds = max( 5, $window_seconds );
         $max_requests = max( 1, $max_requests );
 
-        $ip = $this->get_client_ip();
-        $key = 'khm_wh_rl_' . md5( $ip . '|' . gmdate( 'YmdHi' ) );
-        $count = (int) get_transient( $key );
+        $ip     = $this->get_client_ip();
+        $bucket = (int) floor( time() / $window_seconds );
+        $key    = 'khm_wh_rl_' . md5( $ip . '|' . $bucket );
+        $count  = (int) get_transient( $key );
         $count++;
         set_transient( $key, $count, $window_seconds );
 
@@ -904,7 +910,7 @@ class StripeWebhookHandler {
             $wpdb->query( 'COMMIT' );
         } catch ( \Throwable $e ) {
             $wpdb->query( 'ROLLBACK' );
-            $this->audit_handler( 'checkout.session.completed', $operation_key, $session_id, $user_id, 'failed', $e->getMessage() );
+            $this->audit_handler( $event_id, 'checkout.session.completed', $operation_key, $session_id, $user_id, 'failed', $e->getMessage() );
             throw $e;
         }
     }
@@ -954,7 +960,7 @@ class StripeWebhookHandler {
                 [ '%d', '%s', '%s', '%s' ],
                 [ '%d' ]
             );
-            $this->audit_handler( 'charge.refunded', 'charge_refunded:' . (string) $charge_id, (string) $charge_id, $user_id, 'manual_review', 'Refund credits already consumed; manual review required.' );
+            $this->audit_handler( $event_id, 'charge.refunded', 'charge_refunded:' . (string) $charge_id, (string) $charge_id, $user_id, 'manual_review', 'Refund credits already consumed; manual review required.' );
             return true;
         }
 
@@ -977,7 +983,7 @@ class StripeWebhookHandler {
             [ '%d' ]
         );
 
-        $this->audit_handler( 'charge.refunded', 'charge_refunded:' . (string) $charge_id, (string) $charge_id, $user_id, 'success', 'Credits deducted due to refund.', [ 'credits_reversed' => $credits_added ] );
+        $this->audit_handler( $event_id, 'charge.refunded', 'charge_refunded:' . (string) $charge_id, (string) $charge_id, $user_id, 'success', 'Credits deducted due to refund.', [ 'credits_reversed' => $credits_added ] );
         return true;
     }
 
@@ -1004,11 +1010,11 @@ class StripeWebhookHandler {
             return true;
         }
         if ( 'duplicate' === $claim ) {
-            $this->audit_handler( $event_type, $operation_key, $object_id, $user_id, 'duplicate', 'Operation already completed.' );
+            $this->audit_handler( $event_id, $event_type, $operation_key, $object_id, $user_id, 'duplicate', 'Operation already completed.' );
             return false;
         }
 
-        $this->audit_handler( $event_type, $operation_key, $object_id, $user_id, 'busy', 'Operation already processing in another worker.' );
+        $this->audit_handler( $event_id, $event_type, $operation_key, $object_id, $user_id, 'busy', 'Operation already processing in another worker.' );
         return false;
     }
 
@@ -1093,6 +1099,7 @@ class StripeWebhookHandler {
     }
 
     private function audit_handler(
+        string $event_id,
         string $event_type,
         string $operation_key,
         string $object_id,
@@ -1102,7 +1109,7 @@ class StripeWebhookHandler {
         array $context = []
     ): void {
         MembershipWebhookAuditLogger::log(
-            $operation_key,
+            $event_id,
             $event_type,
             $outcome,
             $object_id,
