@@ -268,7 +268,7 @@ class StripeWebhookHandler {
 
             $schedule_id = isset( $metadata['schedule_id'] ) ? absint( $metadata['schedule_id'] ) : 0;
             if ( $schedule_id > 0 ) {
-                $this->record_paid_attribution( $user_id, $plan_id, $schedule_id );
+                $this->record_paid_attribution( $user_id, $plan_id, $schedule_id, $metadata, $session_id );
             }
 
             $this->emit_telemetry( 'membership.signup', [
@@ -599,9 +599,34 @@ class StripeWebhookHandler {
         return $user_id ? intval($user_id) : null;
     }
 
-    private function record_paid_attribution( int $user_id, int $plan_id, int $schedule_id ): void {
+    private function record_paid_attribution( int $user_id, int $plan_id, int $schedule_id, array $metadata = [], string $session_id = '' ): void {
         global $wpdb;
         $table = $wpdb->prefix . 'promotion_attribution';
+
+        $session_id = sanitize_text_field( $session_id );
+        $sponsor_id = isset( $metadata['sponsor_id'] ) ? absint( $metadata['sponsor_id'] ) : 0;
+        $utm_source = sanitize_text_field( (string) ( $metadata['utm_source'] ?? '' ) );
+        $utm_medium = sanitize_text_field( (string) ( $metadata['utm_medium'] ?? '' ) );
+        $utm_campaign = sanitize_text_field( (string) ( $metadata['utm_campaign'] ?? '' ) );
+        $utm_term = sanitize_text_field( (string) ( $metadata['utm_term'] ?? '' ) );
+        $utm_content = sanitize_text_field( (string) ( $metadata['utm_content'] ?? '' ) );
+        $phase_at_click = sanitize_text_field( (string) ( $metadata['phase_at_click'] ?? '' ) );
+        $idempotency_key = sanitize_text_field( (string) ( $metadata['idempotency_key'] ?? '' ) );
+        $attribution_id = isset( $metadata['attribution_id'] ) ? absint( $metadata['attribution_id'] ) : 0;
+
+        $has_reference_column = $this->promotion_attribution_has_column( 'reference' );
+        if ( $session_id !== '' && $has_reference_column ) {
+            $existing_reference = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT id FROM {$table} WHERE conversion_type = %s AND reference = %s LIMIT 1",
+                    'paid',
+                    $session_id
+                )
+            );
+            if ( $existing_reference ) {
+                return;
+            }
+        }
 
         $existing = $wpdb->get_var(
             $wpdb->prepare(
@@ -617,19 +642,53 @@ class StripeWebhookHandler {
         }
 
         $user = get_user_by( 'id', $user_id );
-        $wpdb->insert(
-            $table,
-            [
-                'schedule_id' => $schedule_id,
+        $insert_data = [
+            'schedule_id' => $schedule_id,
+            'sponsor_id' => $sponsor_id > 0 ? $sponsor_id : null,
+            'user_id' => $user_id,
+            'user_email' => $user ? $user->user_email : '',
+            'utm_source' => $utm_source,
+            'utm_medium' => $utm_medium,
+            'utm_campaign' => $utm_campaign,
+            'utm_term' => $utm_term,
+            'utm_content' => $utm_content,
+            'phase_at_click' => $phase_at_click,
+            'conversion_type' => 'paid',
+            'plan_id' => $plan_id,
+            'reference_metadata' => wp_json_encode( [
+                'source' => 'stripe.checkout.session.completed',
+                'stripe_session_id' => $session_id,
+                'idempotency_key' => $idempotency_key,
+                'attribution_id' => $attribution_id > 0 ? $attribution_id : null,
+            ] ),
+            'created_at' => current_time( 'mysql', 1 ),
+        ];
+        $insert_format = [ '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' ];
+
+        if ( $has_reference_column ) {
+            $insert_data['reference'] = $session_id !== '' ? $session_id : null;
+            $insert_format[] = '%s';
+        }
+
+        $wpdb->insert( $table, $insert_data, $insert_format );
+
+        if ( $wpdb->insert_id ) {
+            $this->emit_telemetry( 'membership.attribution.created', [
                 'user_id' => $user_id,
-                'user_email' => $user ? $user->user_email : '',
+                'schedule_id' => $schedule_id,
+                'sponsor_id' => $sponsor_id,
                 'conversion_type' => 'paid',
-                'plan_id' => $plan_id,
-                'reference_metadata' => wp_json_encode( [ 'source' => 'stripe.checkout.session.completed' ] ),
-                'created_at' => current_time( 'mysql', 1 ),
-            ],
-            [ '%d', '%d', '%s', '%s', '%d', '%s', '%s' ]
-        );
+                'reference' => $session_id,
+                'attribution_id' => (int) $wpdb->insert_id,
+            ] );
+        }
+    }
+
+    private function promotion_attribution_has_column( string $column ): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'promotion_attribution';
+        $exists = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM {$table} LIKE %s", $column ) );
+        return ! empty( $exists );
     }
 
     private function verify_event_signature( string $payload, string $sig_header ) {
@@ -768,12 +827,12 @@ class StripeWebhookHandler {
         }
 
         $email = '';
-        if ( isset( $metadata['guest_email'] ) && is_email( $metadata['guest_email'] ) ) {
-            $email = sanitize_email( (string) $metadata['guest_email'] );
-        } elseif ( isset( $session->customer_details ) && isset( $session->customer_details->email ) && is_email( $session->customer_details->email ) ) {
+        if ( isset( $session->customer_details ) && isset( $session->customer_details->email ) && is_email( $session->customer_details->email ) ) {
             $email = sanitize_email( (string) $session->customer_details->email );
         } elseif ( isset( $session->customer_email ) && is_email( $session->customer_email ) ) {
             $email = sanitize_email( (string) $session->customer_email );
+        } elseif ( isset( $metadata['guest_email'] ) && is_email( $metadata['guest_email'] ) ) {
+            $email = sanitize_email( (string) $metadata['guest_email'] );
         }
 
         if ( $email === '' ) {

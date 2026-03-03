@@ -200,11 +200,7 @@ class CheckoutController {
 
         $incomingCode = sanitize_text_field((string) ($request->get_param('applied_promo_code') ?? $request->get_param('promo_code') ?? ''));
         $incomingPromoId = sanitize_text_field((string) ($request->get_param('applied_promo') ?? $request->get_param('promo_id') ?? ''));
-        $incomingStripePromotionCode = sanitize_text_field((string) ($request->get_param('stripe_promotion_code') ?? ''));
-
-        if ($incomingStripePromotionCode !== '') {
-            $stripePromotionCode = $incomingStripePromotionCode;
-        }
+        // Never trust raw stripe_promotion_code from client payload.
 
         if ($incomingCode !== '') {
             if (!$this->discounts) {
