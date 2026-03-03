@@ -72,5 +72,5 @@ Code evidence deployed:
 - Blocking issues:
   - Manual UI checklist items still pending execution.
 - Follow-ups:
-  - Update runbook endpoint references from `kh-membership/v1/webhook/stripe` to `khm/v1/webhooks/stripe` where applicable.
-  - Confirm whether `wp_khm_processed_webhooks` is expected in this environment or superseded by `wp_khm_webhook_events`.
+  - [x] Runbook/docs endpoint references updated to canonical route `khm/v1/webhooks/stripe`.
+  - [x] Table model clarified: staging canonical webhook idempotency is `wp_khm_webhook_events`; `wp_khm_processed_webhooks` belongs to legacy membership webhook flow.
