@@ -130,7 +130,9 @@ class SignupEndpoint {
     }
 
     private function create_checkout_session($user_id, $email, $plan_id, string $tier_slug, int $trial_days, $params) {
-        $secret = get_option('khm_stripe_secret_key', '');
+        $secret = function_exists('khm_get_stripe_secret')
+            ? (string) (khm_get_stripe_secret('KH_STRIPE_SECRET_KEY') ?? '')
+            : '';
         if ( empty($secret) ) {
             return new \WP_REST_Response([
                 'error' => 'Stripe is not configured'
