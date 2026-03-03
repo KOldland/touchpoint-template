@@ -76,6 +76,8 @@ Policy constants (optional, override defaults):
 
 Telemetry hook: `khm_membership_webhook_telemetry`
 
+Safety threshold policy doc: `docs/MEMBERSHIP_OPS_SAFETY_THRESHOLDS.md`
+
 Track:
 - `webhook.received`
 - `webhook.invalid_signature`
