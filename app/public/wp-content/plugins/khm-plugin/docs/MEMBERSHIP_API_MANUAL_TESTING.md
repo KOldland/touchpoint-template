@@ -65,7 +65,7 @@ brew install stripe/stripe-cli/stripe
 stripe login
 
 # Forward webhooks to local WordPress
-stripe listen --forward-to http://touchpoint-template.local/wp-json/kh-membership/v1/webhook/stripe
+stripe listen --forward-to http://touchpoint-template.local/wp-json/khm/v1/webhooks/stripe
 ```
 
 Copy the webhook signing secret (`whsec_...`) to WordPress settings.
@@ -343,7 +343,7 @@ curl "http://touchpoint-template.local/wp-json/kh-membership/v1/status?user_id=9
 
 ## Test 4: Stripe Webhook Handler
 
-**Endpoint**: `POST /wp-json/kh-membership/v1/webhook/stripe`
+**Endpoint**: `POST /wp-json/khm/v1/webhooks/stripe`
 
 ### Test 4.1: checkout.session.completed
 
@@ -353,7 +353,7 @@ curl "http://touchpoint-template.local/wp-json/kh-membership/v1/status?user_id=9
 
 **Stripe CLI**:
 ```bash
-stripe listen --forward-to http://touchpoint-template.local/wp-json/kh-membership/v1/webhook/stripe
+stripe listen --forward-to http://touchpoint-template.local/wp-json/khm/v1/webhooks/stripe
 ```
 
 **Trigger Event**:
@@ -365,7 +365,7 @@ stripe trigger checkout.session.completed
 - Membership created in `wp_user_membership`
 - Status = 'active'
 - stripe_customer_id and stripe_subscription_id populated
-- Event logged in `wp_stripe_webhook_events`
+- Event logged in `wp_khm_webhook_events`
 
 ### Test 4.2: invoice.paid
 
@@ -407,7 +407,7 @@ stripe trigger customer.subscription.deleted
 
 **Check Database**:
 ```sql
-SELECT * FROM wp_stripe_webhook_events;
+SELECT * FROM wp_khm_webhook_events;
 ```
 
 **Expected**:
@@ -418,7 +418,7 @@ SELECT * FROM wp_stripe_webhook_events;
 
 **Request** (missing or invalid signature):
 ```bash
-curl -X POST "http://touchpoint-template.local/wp-json/kh-membership/v1/webhook/stripe" \
+curl -X POST "http://touchpoint-template.local/wp-json/khm/v1/webhooks/stripe" \
   -H "Content-Type: application/json" \
   -H "Stripe-Signature: invalid" \
   -d '{
@@ -495,7 +495,7 @@ ORDER BY um.started_at DESC;
 
 ### Check Webhook Events
 ```sql
-SELECT * FROM wp_stripe_webhook_events ORDER BY processed_at DESC LIMIT 20;
+SELECT * FROM wp_khm_webhook_events ORDER BY processed_at DESC LIMIT 20;
 ```
 
 ---
@@ -507,7 +507,7 @@ Before deploying to production:
 - [ ] All manual tests pass
 - [ ] Stripe production keys configured (not test keys)
 - [ ] Webhook endpoint registered in Stripe Dashboard
-- [ ] Database tables created (`promotion_attribution`, `user_membership`, `membership_tier`, `stripe_webhook_events`)
+- [ ] Database tables created (`promotion_attribution`, `user_membership`, `membership_tier`, `khm_webhook_events`)
 - [ ] SSL certificate valid (webhooks require HTTPS)
 - [ ] Rate limiting configured for public endpoints
 - [ ] Error logging configured
