@@ -1,0 +1,126 @@
+name: Golden Check & Governance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      - name: Run secret scan
+        run: php scripts/secret_scan.php
+
+  golden-check:
+    name: golden-check
+    runs-on: ubuntu-latest
+    needs: [secret-scan]
+    env:
+      KH_SMMA_TEST_MODE: 'ci'
+      KH_SMMA_GOLDEN_FIXTURE: 'generate_awareness_ok.json'
+      CI: 'true'
+      OPENAI_API_KEY: ''
+      OPENAI_KEY: ''
+      ANTHROPIC_API_KEY: ''
+      ANTHROPIC_KEY: ''
+      DUAL_GPT_API_KEY: ''
+      LLM_API_KEY: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer:v2
+
+      - name: Install SMMA dependencies
+        working-directory: app/public/wp-content/plugins/kh-smma
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Verify fixture metadata and checksums
+        run: php scripts/verify_golden_fixtures.php
+
+      - name: Label check for fixture/contract changes
+        id: labelcheck
+        run: |
+          php scripts/label_check.php \
+            --event "$GITHUB_EVENT_PATH" \
+            --base "origin/${{ github.base_ref }}" \
+            --head "HEAD"
+
+      - name: Run golden check
+        id: golden
+        run: |
+          mkdir -p artifacts
+          php scripts/golden_check.php \
+            --event "$GITHUB_EVENT_PATH" \
+            --base "origin/${{ github.base_ref }}" \
+            --head "HEAD" \
+            --output "artifacts/golden-summary.json" \
+            --diff-dir "artifacts/golden-diffs" \
+            --zip "artifacts/golden-diff-${{ github.event.pull_request.number || 'manual' }}.zip"
+
+      - name: Upload golden artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diff-${{ github.event.pull_request.number || 'manual' }}
+          path: artifacts/
+          if-no-files-found: warn
+
+      - name: Post mismatch summary to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'artifacts/golden-summary.json';
+            let body = '**Golden-check summary**\n\n';
+            if (!fs.existsSync(summaryPath)) {
+              body += 'No summary artifact found. Check workflow logs for label/governance failure details.';
+            } else {
+              const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+              body += `Result: ${summary.result}\n\n`;
+              if (summary.governance && summary.governance.status === 'failed') {
+                body += 'Governance failure:\n';
+                body += '```\n' + (summary.governance.message || 'Label check failed') + '\n```\n\n';
+              }
+              const mismatches = summary.mismatches || [];
+              if (mismatches.length > 0) {
+                body += 'Mismatches:\n';
+                body += mismatches.map(m => `- ${m.fixture} (owner: ${m.owner})`).join('\n');
+                body += '\n\nFull unified diffs are attached as workflow artifacts.';
+              }
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Enforce failure contract
+        if: failure()
+        run: |
+          echo "Golden-check or governance gate failed. See artifacts and PR comment."
+          exit 1
