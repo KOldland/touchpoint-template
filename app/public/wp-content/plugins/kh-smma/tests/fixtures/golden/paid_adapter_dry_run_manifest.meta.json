@@ -1,9 +1,9 @@
 {
     "version": "1.0.0",
-    "prompt_hash": "138c6166b6bdda7d931c92cf595499f574848b9728e233674b5288f3ea36f1ee",
-    "prompt_version": "cic-01",
-    "created_at": "2026-03-03T00:00:00Z",
-    "author": "@ci-qa-team",
-    "checksum": "ca5e68ab21c838be9e7b9e34f3b2b3cb673457d28c0c9763b652b67ec822ebc4",
-    "notes": "Canonical CIC-01 golden fixture"
+    "prompt_hash": "sha256:204239e53218048a87508e272a6bc65db4dbaa8c559b880247b22e61a8916e1a",
+    "prompt_version": "v1",
+    "created_at": "2026-03-03T21:33:54Z",
+    "author": "@paid-owner",
+    "checksum": "sha256:ca5e68ab21c838be9e7b9e34f3b2b3cb673457d28c0c9763b652b67ec822ebc4",
+    "notes": "Initial paid adapter manifest fixture for CIC-02"
 }

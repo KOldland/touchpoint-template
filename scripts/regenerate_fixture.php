@@ -9,7 +9,7 @@ declare(strict_types=1);
  *     --input /path/to/recorded.json \
  *     --fixture-name generate_awareness_ok.json \
  *     --author @ci-qa-team \
- *     --prompt-version cic-01
+ *     --prompt-version v1
  */
 
 const GOLDEN_DIR = __DIR__ . '/../app/public/wp-content/plugins/kh-smma/tests/fixtures/golden';
@@ -21,7 +21,7 @@ function main(array $argv): void {
 	$input = $options['input'] ?? '';
 	$fixture_name = $options['fixture-name'] ?? '';
 	$author = $options['author'] ?? '@ci-qa-team';
-	$prompt_version = $options['prompt-version'] ?? 'cic-01';
+	$prompt_version = $options['prompt-version'] ?? 'v1';
 	$notes = $options['notes'] ?? 'Regenerated via scripts/regenerate_fixture.php';
 
 	if ($input === '' || $fixture_name === '') {
@@ -73,11 +73,11 @@ function main(array $argv): void {
 
 	$meta = array(
 		'version' => '1.0.0',
-		'prompt_hash' => hash('sha256', $prompt_version . '|' . $fixture_name),
+		'prompt_hash' => 'sha256:' . hash('sha256', $prompt_version . '|' . $fixture_name),
 		'prompt_version' => $prompt_version,
 		'created_at' => gmdate('c'),
 		'author' => $author,
-		'checksum' => $checksum,
+		'checksum' => 'sha256:' . $checksum,
 		'notes' => $notes,
 	);
 

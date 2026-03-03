@@ -1,0 +1,17 @@
+{
+  "run_id": "dryrun_{{RUN_ID}}",
+  "adapter": "meta_ads",
+  "mode": "dry_run",
+  "status": "ok",
+  "summary": {
+    "planned_operations": 2,
+    "warnings": 0,
+    "errors": 0
+  },
+  "artifacts": [
+    {
+      "artifact_type": "manifest",
+      "path": "{{MANIFEST_PATH}}"
+    }
+  ]
+}

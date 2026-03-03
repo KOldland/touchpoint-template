@@ -1,0 +1,9 @@
+{
+    "version": "1.0.0",
+    "prompt_hash": "sha256:c572a4c987906c8417db27274beb601a29832d9648af6ed6b0bc8313e61ecdbf",
+    "prompt_version": "v1",
+    "created_at": "2026-03-03T21:33:54Z",
+    "author": "@paid-owner",
+    "checksum": "sha256:48678d509fc6c6846e9b50705d54e3cf92695765fa3f8f816a9c4215174a4aac",
+    "notes": "Initial paid adapter dry-run response fixture for CIC-02"
+}

@@ -1,9 +1,9 @@
 {
     "version": "1.0.0",
-    "prompt_hash": "f6741a69b7d11a83c0450805877ebe3174d5d7c9daf3c44dd1f95edbe609f486",
-    "prompt_version": "cic-01",
-    "created_at": "2026-03-03T00:00:00Z",
-    "author": "@ci-qa-team",
-    "checksum": "9ab30c220f8f0e3a06ea08081f481cd9fecf0f60196121fad3fdfdf51ba25fb6",
-    "notes": "Canonical CIC-01 golden fixture"
+    "prompt_hash": "sha256:fc3932a2d0b70ebb25d8df1b3726f1e166503d62e9fb6f7ca7aecc0d6cea7490",
+    "prompt_version": "v1",
+    "created_at": "2026-03-03T21:33:54Z",
+    "author": "@compliance-owner",
+    "checksum": "sha256:9ab30c220f8f0e3a06ea08081f481cd9fecf0f60196121fad3fdfdf51ba25fb6",
+    "notes": "Initial compliance OK fixture for CIC-02"
 }

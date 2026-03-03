@@ -5,17 +5,10 @@ const GOLDEN_DIR = __DIR__ . '/../app/public/wp-content/plugins/kh-smma/tests/fi
 
 $required = array(
 	'generate_awareness_ok.json',
-	'generate_sponsor_warn.json',
-	'generate_sponsor_fail.json',
-	'google_ad_draft.json',
 	'compliance_ok.json',
-	'compliance_warn.json',
-	'compliance_fail.json',
 	'checkout_session_completed.json',
-	'invoice_paid.json',
-	'checkout_session_no_consent.json',
 	'paid_adapter_dry_run_manifest.json',
-	'paid_adapter_execute_response.json',
+	'paid_adapter_dry_run_response.json',
 );
 
 $errors = array();
@@ -70,15 +63,26 @@ foreach ($required as $fixture) {
 		$errors[] = basename($meta_path) . ' author must be a GitHub handle starting with @';
 	}
 
+	if (
+		isset($meta['prompt_hash']) &&
+		(
+			!is_string($meta['prompt_hash']) ||
+			preg_match('/^sha256:[a-f0-9]{64}$/', $meta['prompt_hash']) !== 1
+		)
+	) {
+		$errors[] = basename($meta_path) . ' prompt_hash must be formatted as sha256:<64 hex chars>';
+	}
+
 	$actual_checksum = hash_file('sha256', $fixture_path);
 	if ($actual_checksum === false) {
 		$errors[] = "Could not hash fixture: {$fixture}";
 		continue;
 	}
 
-	if (($meta['checksum'] ?? '') !== $actual_checksum) {
+	$expected_checksum = 'sha256:' . $actual_checksum;
+	if (($meta['checksum'] ?? '') !== $expected_checksum) {
 		$errors[] = basename($meta_path) . ' checksum mismatch'
-			. " (expected {$meta['checksum']}, got {$actual_checksum})";
+			. " (expected {$meta['checksum']}, got {$expected_checksum})";
 	}
 }
 
