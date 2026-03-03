@@ -80,3 +80,19 @@ Code evidence deployed:
 - Follow-ups:
   - [x] Runbook/docs endpoint references updated to canonical route `khm/v1/webhooks/stripe`.
   - [x] Table model clarified: staging canonical webhook idempotency is `wp_khm_webhook_events`; `wp_khm_processed_webhooks` belongs to legacy membership webhook flow.
+
+## Ops checklist validation (2026-03-03)
+- [x] Threshold policy doc added for required metrics:
+  - `docs/MEMBERSHIP_OPS_SAFETY_THRESHOLDS.md`
+- [x] Staging email toggles validated as default-off:
+  - `khm_membership_transactional_emails_enabled` resolved to `false` via `get_option(..., false)`
+  - `khm_email_enhanced_delivery` resolved to `false`
+- [x] Webhook retention + requeue process documented and tested:
+  - Canonical webhook retention check: `older_than_90_days=0` in `wp_khm_webhook_events`
+  - Non-destructive cleanup invocation tested: `DatabaseIdempotencyStore::cleanup(36500)` -> deleted `0`
+  - Dead-letter requeue command path verified on staging:
+    - `wp khm stripe-marketing-dead-letters --resolved=0 --last=5`
+    - `wp khm stripe-marketing-dead-letters-replay --all-unresolved --limit=1 --dry-run`
+    - command executed and produced expected replay failure for stale `prod_debug` dead letter (proves operator path)
+- [x] DB cleanup ticket opened for dbDelta FK warning remediation:
+  - `https://github.com/KOldland/touchpoint-template/issues/28`
