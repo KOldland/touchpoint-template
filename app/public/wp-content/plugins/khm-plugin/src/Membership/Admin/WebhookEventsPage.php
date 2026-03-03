@@ -15,14 +15,15 @@ class WebhookEventsPage {
             'khm-membership',
             __( 'Webhook Events', 'khm-membership' ),
             __( 'Webhook Events', 'khm-membership' ),
-            'manage_khm',
+            'manage_options',
             'khm-membership-webhooks',
             [ $this, 'render_page' ]
         );
     }
 
     public function render_page(): void {
-        if ( ! current_user_can( 'manage_khm' ) && ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            error_log( sprintf( 'unauthorized_admin_access user_id=%d resource=%s', (int) get_current_user_id(), 'khm-membership-webhooks' ) );
             wp_die( esc_html__( 'Insufficient permissions.', 'khm-membership' ) );
         }
 
@@ -70,7 +71,8 @@ class WebhookEventsPage {
     }
 
     public function handle_action(): void {
-        if ( ! current_user_can( 'manage_khm' ) && ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            error_log( sprintf( 'unauthorized_admin_access user_id=%d resource=%s', (int) get_current_user_id(), 'khm-membership-webhooks-action' ) );
             wp_die( esc_html__( 'Insufficient permissions.', 'khm-membership' ) );
         }
 
@@ -118,7 +120,9 @@ class WebhookEventsPage {
 
             // Fallback: build a StripeClient from the stored API key if the filter provides none.
             if ( ! ( $stripe_client instanceof \Stripe\StripeClient ) && class_exists( '\Stripe\StripeClient' ) ) {
-                $secret = (string) get_option( 'khm_stripe_secret_key', '' );
+                $secret = function_exists( 'khm_get_stripe_secret' )
+                    ? (string) ( khm_get_stripe_secret( 'KH_STRIPE_SECRET_KEY' ) ?? '' )
+                    : '';
                 if ( '' !== $secret ) {
                     $stripe_client = new \Stripe\StripeClient( $secret );
                 }
@@ -175,4 +179,3 @@ class WebhookEventsPage {
         );
     }
 }
-

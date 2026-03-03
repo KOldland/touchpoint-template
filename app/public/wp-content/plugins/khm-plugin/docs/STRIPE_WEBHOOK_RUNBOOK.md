@@ -21,19 +21,45 @@ This runbook covers:
 
 ## Security and secrets
 
-Required options/secrets:
-- `khm_stripe_webhook_secret`
-- `khm_stripe_secret_key`
+Required deployment secrets:
+- `KH_STRIPE_WEBHOOK_SECRET`
+- `KH_STRIPE_SECRET_KEY`
+- optional split routing: `KH_STRIPE_WEBHOOK_SECRET_MARKETING`, `KH_STRIPE_WEBHOOK_SECRET_BILLING`
 
-Never store webhook secrets in code or docs.
+Never store webhook secrets in code, docs, or WordPress options.
 
 ## Secret rotation procedure
 
-1. Create/roll webhook secret in Stripe destination settings.
-2. Update `khm_stripe_webhook_secret` in WordPress admin settings.
-3. Send Stripe test event (`product.updated` or `invoice.paid`) and confirm `200`.
-4. Verify new events are written to `wp_khm_webhook_events`.
-5. Keep old secret only during brief overlap window if required; remove old value after validation.
+1. Rotate webhook signing secret in Stripe endpoint settings.
+2. Update deployment env var `KH_STRIPE_WEBHOOK_SECRET` (and split env vars if used).
+3. Deploy/restart runtime so env values are active.
+4. Send Stripe test event (`product.updated` or `invoice.paid`) and confirm `200`.
+5. Verify events are written to `wp_khm_webhook_events` and `webhook.invalid_signature` does not spike.
+6. Remove old secret after overlap window (if dual-secret overlap was used).
+
+## Rate limit operations
+
+Rate-limit keys (transients):
+- `khm_webhook_rate:{ip_hash}:{minute_bucket}`
+- `khm_webhook_badsig:{ip_hash}`
+- `khm_webhook_badsig_total`
+- `khm_webhook_block:{ip_hash}`
+- `khm_webhook_block_level:{ip_hash}`
+
+To unblock an IP immediately (example hash):
+
+```bash
+wp transient delete "khm_webhook_block:<md5_of_ip>"
+wp transient delete "khm_webhook_block_level:<md5_of_ip>"
+```
+
+Progressive blocking defaults:
+- bad signatures: `>10` in `60s` => block
+- request rate: `>60/min` => throttle with `429` + `Retry-After`
+- block TTL progression: `1m -> 5m -> 25m` (capped by max TTL)
+
+Test mode:
+- set `KHM_WEBHOOK_RATE_LIMIT_TEST_MODE=true` to use lower thresholds for repeatable staging/unit verification.
 
 ## Event processing model
 
@@ -81,16 +107,26 @@ Safety threshold policy doc: `docs/MEMBERSHIP_OPS_SAFETY_THRESHOLDS.md`
 Track:
 - `webhook.received`
 - `webhook.invalid_signature`
-- `webhook.rate_limited`
+- `webhook.rate_limit.exceeded`
+- `webhook.rate_limit.blocked`
 - `webhook.processed`
 - `webhook.failed`
 - `webhook.queue_failed`
 
 Suggested alerts:
 - invalid signature rate > 5% over 15m
+- rate-limit exceeded > 20 events in 5m
+- blocked IP count > 5 in 15m
 - failed processing rate > 2% over 15m
 - queue failures > 0 over 5m
 - backlog of `processing` events older than 10m
+
+## Admin permissions validation (staging)
+
+1. Log in as non-admin user (no `manage_options`).
+2. Visit `wp-admin/admin.php?page=khm-settings` and `wp-admin/admin.php?page=khm-email-preview`.
+3. Expected: denied (`403`/permission error) and access attempt logged as `unauthorized_admin_access`.
+4. For ingestion routes, call `/wp-json/khm/v1/ingest/ga4` without `x-khm-ingest-key`; expected `401`.
 
 ## Manual triage SQL
 
