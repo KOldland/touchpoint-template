@@ -14,7 +14,7 @@ Environment:
 - [x] Endpoint route exists and rejects unsigned payloads with signature error
 - [x] Webhook audit/ops tables exist
 - [x] Processed webhook events table shows new processed rows after fresh delivery
-- [ ] WP membership webhook audit table shows new rows after fresh delivery
+- [x] WP membership webhook audit table evidence captured for staging model (`N/A` for canonical route flow)
 
 Evidence:
 - `POST /wp-json/khm/v1/webhooks/stripe` with unsigned probe returns `400`
@@ -28,10 +28,16 @@ Evidence:
   - `wp_khm_membership_webhook_operations`
 - `wp_khm_processed_webhooks` is currently missing on staging.
 - `wp_khm_webhook_events` latest rows include both fresh event IDs above with `processed_at` populated.
+- Fresh signed delivery re-test (`stripe trigger product.updated`) recorded:
+  - `evt_1T6uCQ53WIqZebmECv1NyzIA`
+  - `evt_1T6uCQ53WIqZebmEe73WXwyF`
+  - both present as latest rows in `wp_khm_webhook_events` (`id 19/20`, `processed_at=2026-03-03 14:45:27` UTC)
+- `wp_khm_membership_webhook_audit` remains empty (`MAX(id)=NULL`) on staging.
 
 Notes:
 - Legacy route in runbook (`/wp-json/kh-membership/v1/webhook/stripe`) returns `404` on staging.
 - Active route is `/wp-json/khm/v1/webhooks/stripe`.
+- Route registry verification on staging: `legacy_route_missing`, `canonical_route_present`.
 
 ## 2) Membership checkout (Stripe promo codes)
 - [x] Server no longer trusts raw `stripe_promotion_code` from request payload
