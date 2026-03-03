@@ -266,6 +266,10 @@ class SmmaGenerator {
             return array();
         }
 
+        if ( isset( $decoded['linkedin_variants'] ) && is_array( $decoded['linkedin_variants'] ) ) {
+            return $decoded['linkedin_variants'];
+        }
+
         if ( isset( $decoded['variants'] ) && is_array( $decoded['variants'] ) ) {
             return $decoded['variants'];
         }

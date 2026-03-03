@@ -220,6 +220,12 @@ if ( ! function_exists( 'sanitize_text_field' ) ) {
     }
 }
 
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+    function sanitize_textarea_field( $value ) {
+        return is_string( $value ) ? trim( $value ) : $value;
+    }
+}
+
 if ( ! function_exists( 'sanitize_key' ) ) {
     function sanitize_key( $value ) {
         return is_string( $value ) ? preg_replace( '/[^a-z0-9_\-]/', '', strtolower( $value ) ) : $value;
@@ -300,9 +306,32 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 if ( ! class_exists( 'WP_Error' ) ) {
     class WP_Error extends \Exception {
         public $errors = array();
+        public $error_data = array();
         public function __construct( $code = '', $message = '', $data = null ) {
             parent::__construct( $message );
             $this->errors[ $code ] = array( $message );
+            $this->error_data[ $code ] = $data;
+        }
+
+        public function get_error_message() {
+            foreach ( $this->errors as $messages ) {
+                if ( ! empty( $messages[0] ) ) {
+                    return $messages[0];
+                }
+            }
+            return '';
+        }
+
+        public function get_error_code() {
+            $codes = array_keys( $this->errors );
+            return $codes[0] ?? '';
+        }
+
+        public function get_error_data( $code = '' ) {
+            if ( '' === $code ) {
+                $code = $this->get_error_code();
+            }
+            return $this->error_data[ $code ] ?? null;
         }
     }
 }

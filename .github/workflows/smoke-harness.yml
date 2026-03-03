@@ -1,0 +1,58 @@
+name: Smoke Harness (SMMA)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  smoke-harness:
+    name: smoke-harness
+    runs-on: ubuntu-latest
+    env:
+      KH_SMMA_TEST_MODE: "ci"
+      CI: "true"
+      OPENAI_API_KEY: ""
+      OPENAI_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      ANTHROPIC_KEY: ""
+      DUAL_GPT_API_KEY: ""
+      LLM_API_KEY: ""
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer:v2
+
+      - name: Install plugin dependencies
+        working-directory: app/public/wp-content/plugins/kh-smma
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run deterministic smoke harness
+        run: |
+          mkdir -p artifacts/smoke-output
+          php scripts/smoke_harness.php \
+            --fixture generate_awareness_ok.json \
+            --output artifacts/smoke-output
+
+      - name: Run smoke wrapper PHPUnit test
+        run: |
+          app/public/wp-content/plugins/kh-smma/vendor/bin/phpunit \
+            --bootstrap app/public/wp-content/plugins/kh-smma/tests/bootstrap.php \
+            tests/smoke/SmmaSmokeTest.php \
+            --colors=always
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts
+          path: artifacts/smoke-output
+          if-no-files-found: warn
