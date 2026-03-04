@@ -1,0 +1,45 @@
+name: CIC Flaky Detect
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  flaky-detect:
+    name: flaky-detect
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install plugin dependencies
+        run: cd app/public/wp-content/plugins/kh-smma && composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run flaky detector
+        run: |
+          mkdir -p artifacts
+          php scripts/detect_flaky_tests.php \
+            --test app/public/wp-content/plugins/kh-smma/tests/Lib/MockLLMClientTest.php \
+            --runs 10 \
+            --owner @ci-qa-team \
+            --append-doc docs/ci/flaky_tests.md \
+            --output artifacts/flaky-report.json || true
+
+      - name: Upload flaky report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-report
+          path: |
+            artifacts/flaky-report.json
+            docs/ci/flaky_tests.md
+          if-no-files-found: warn

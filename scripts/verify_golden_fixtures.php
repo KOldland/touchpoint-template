@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 const GOLDEN_DIR = __DIR__ . '/../app/public/wp-content/plugins/kh-smma/tests/fixtures/golden';
+$strict_mode = (string)getenv('KHM_VERIFY_STRICT') === '1';
 
 $required = array(
 	'generate_awareness_ok.json',
@@ -46,6 +47,10 @@ foreach ($required as $fixture) {
 
 	if (has_secret_pattern($content)) {
 		$errors[] = "Secret-like pattern detected in fixture: {$fixture}";
+	}
+
+	if ($strict_mode && has_pii_pattern($content)) {
+		$errors[] = "Potential PII detected in fixture (strict mode): {$fixture}";
 	}
 
 	$meta_raw = file_get_contents($meta_path);
@@ -99,6 +104,22 @@ function has_secret_pattern(string $content): bool {
 		'/-----BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY-----/',
 		'/\bAKIA[0-9A-Z]{16}\b/',
 		'/\bBearer\s+[A-Za-z0-9\-._~+\/]+=*/i',
+	);
+	foreach ($patterns as $pattern) {
+		if (preg_match($pattern, $content) === 1) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function has_pii_pattern(string $content): bool {
+	$patterns = array(
+		'/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i', // email
+		'/\\b(?:\\+?\\d{1,3}[\\s.-]?)?(?:\\(?\\d{2,4}\\)?[\\s.-]?)\\d{3,4}[\\s.-]?\\d{3,4}\\b/', // phone-like
+		'/\\b[A-Z]{2}\\d{2}[A-Z0-9]{11,30}\\b/', // IBAN-like
+		'/\\b\\d{6,8}-\\d{6,10}\\b/', // account-like separators
+		'/\\b(?:\\d[ -]*?){13,19}\\b/', // card-like
 	);
 	foreach ($patterns as $pattern) {
 		if (preg_match($pattern, $content) === 1) {

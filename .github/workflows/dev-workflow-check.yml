@@ -1,0 +1,61 @@
+name: CIC Dev Workflow Check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'docs/ci/**'
+      - 'docs/contracts/**'
+      - 'tools/**'
+      - 'ci/**'
+      - '.github/workflows/dev-workflow-check.yml'
+
+jobs:
+  dev-workflow-check:
+    name: dev-workflow-check
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      KH_SMMA_TEST_MODE: ci
+      CI: 'true'
+      OPENAI_API_KEY: ''
+      OPENAI_KEY: ''
+      ANTHROPIC_API_KEY: ''
+      ANTHROPIC_KEY: ''
+      DUAL_GPT_API_KEY: ''
+      LLM_API_KEY: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install plugin dependencies
+        run: cd app/public/wp-content/plugins/kh-smma && composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Bootstrap CI parity env
+        run: ./scripts/ci_local_env.sh
+
+      - name: Run dev golden wrapper smoke
+        run: php scripts/dev_golden_check.php --fixture generate_awareness_ok.json --output artifacts/dev-golden-check
+
+      - name: Run script unit tests (PHP + Python)
+        run: |
+          app/public/wp-content/plugins/kh-smma/vendor/bin/phpunit app/public/wp-content/plugins/kh-smma/tests/FlakyDetectorTest.php app/public/wp-content/plugins/kh-smma/tests/DevGoldenCheckParityTest.php --colors=never
+          python3 -m unittest scripts.tests.test_extract_golden_diffs
+
+      - name: Upload dev workflow artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-workflow-artifacts
+          path: artifacts/dev-golden-check
+          if-no-files-found: warn

@@ -1,0 +1,54 @@
+version: "3.9"
+
+services:
+  php:
+    image: php:8.2-cli
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+    environment:
+      KH_SMMA_TEST_MODE: "ci"
+      CI: "true"
+      KH_SMMA_GOLDEN_FIXTURE: "generate_awareness_ok.json"
+      OPENAI_API_KEY: ""
+      OPENAI_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      ANTHROPIC_KEY: ""
+      DUAL_GPT_API_KEY: ""
+      LLM_API_KEY: ""
+    command: ["bash", "-lc", "sleep infinity"]
+
+  php-fpm:
+    image: php:8.2-fpm
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+    environment:
+      KH_SMMA_TEST_MODE: "ci"
+      CI: "true"
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - php-fpm
+    ports:
+      - "8081:80"
+    volumes:
+      - ..:/workspace:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wp
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: wp
+    ports:
+      - "3307:3306"
+    command: ["--default-authentication-plugin=mysql_native_password"]
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"

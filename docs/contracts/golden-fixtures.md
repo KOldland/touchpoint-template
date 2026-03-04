@@ -29,10 +29,16 @@ Each core fixture has `<fixture>.meta.json` with:
 - `checksum`
 - `notes`
 
+Canonical prompts and versions are stored in:
+
+- `docs/contracts/prompts/prompts_registry.json`
+- `docs/contracts/prompts/*.txt`
+
 ## Local verification
 
 ```bash
 php scripts/verify_golden_fixtures.php
+KHM_VERIFY_STRICT=1 php scripts/verify_golden_fixtures.php
 ```
 
 ## Local deterministic run
@@ -41,4 +47,10 @@ php scripts/verify_golden_fixtures.php
 export KH_SMMA_TEST_MODE=ci
 export KH_SMMA_GOLDEN_FIXTURE=generate_awareness_ok.json
 vendor/bin/phpunit tests/Lib/MockLLMClientTest.php
+```
+
+## Hash reproducibility
+
+```bash
+php scripts/compute_prompt_hash.php --file docs/contracts/prompts/smma_generate_v1.txt
 ```

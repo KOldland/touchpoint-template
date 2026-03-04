@@ -1,0 +1,17 @@
+{
+  "registry_version": "1.0.0",
+  "prompts": [
+    {
+      "prompt_version": "smma_generate_v1",
+      "file": "docs/contracts/prompts/smma_generate_v1.txt",
+      "owner": "@ci-qa-team",
+      "example_fixture": "generate_awareness_ok.json"
+    },
+    {
+      "prompt_version": "compliance_validator_v1",
+      "file": "docs/contracts/prompts/compliance_validator_v1.txt",
+      "owner": "@ci-qa-team",
+      "example_fixture": "compliance_ok.json"
+    }
+  ]
+}
