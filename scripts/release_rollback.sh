@@ -41,7 +41,7 @@ RUN_ID="${GITHUB_RUN_ID:-local}"
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 RESULT="success"
 DEPLOY_REVERTED=false
-ROLLBACK_COMMAND=""
+ROLLBACK_COMMAND_EXECUTED=0
 
 DRY_ARG=()
 if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -58,13 +58,12 @@ render_cmd() {
 }
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  if [[ -n "${RELEASE_ROLLBACK_CMD:-}" ]]; then
-    ROLLBACK_COMMAND="$(render_cmd "${RELEASE_ROLLBACK_CMD}")"
-  fi
+  :
 else
   if [[ -n "${RELEASE_ROLLBACK_CMD:-}" ]]; then
-    ROLLBACK_COMMAND="$(render_cmd "${RELEASE_ROLLBACK_CMD}")"
-    if bash -lc "$ROLLBACK_COMMAND"; then
+    ROLLBACK_COMMAND_EXECUTED=1
+    ROLLBACK_CMD="$(render_cmd "${RELEASE_ROLLBACK_CMD}")"
+    if bash -lc "$ROLLBACK_CMD"; then
       DEPLOY_REVERTED=true
     else
       RESULT="failure"
@@ -84,7 +83,9 @@ cat > "$ARTIFACT_DIR/rollback-summary.json" <<EOF
   "actor": "${ACTOR}",
   "dry_run": $([[ "$DRY_RUN" -eq 1 ]] && echo true || echo false),
   "deploy_reverted": ${DEPLOY_REVERTED},
-  "rollback_command": "${ROLLBACK_COMMAND}",
+  "rollback_command_configured": $([[ -n "${RELEASE_ROLLBACK_CMD:-}" ]] && echo true || echo false),
+  "rollback_command_executed": $([[ "$ROLLBACK_COMMAND_EXECUTED" -eq 1 ]] && echo true || echo false),
+  "rollback_command_redacted": true,
   "result": "${RESULT}",
   "started_at": "${STARTED_AT}",
   "ended_at": "${ENDED_AT}"

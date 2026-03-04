@@ -159,8 +159,7 @@ jobs:
         run: |
           php scripts/release_gate_check.php \
             --env=staging \
-            --artifact-dir=artifacts/release/staging/gate \
-            --allow-missing-smoke=1
+            --artifact-dir=artifacts/release/staging/gate
 
       - name: Optional MEM E2E
         if: steps.meta.outputs.run_mem_e2e == 'true'
@@ -223,7 +222,6 @@ jobs:
           php scripts/release_gate_check.php \
             --env=canary \
             --artifact-dir=artifacts/release/canary/gate \
-            --allow-missing-smoke=1 \
             $SIM_ARG
 
       - name: Canary observation window

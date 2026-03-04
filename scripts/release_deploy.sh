@@ -52,7 +52,7 @@ RUN_ID="${GITHUB_RUN_ID:-local}"
 ACTOR="${GITHUB_ACTOR:-manual}"
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 RESULT="success"
-COMMAND_USED=""
+COMMAND_EXECUTED=0
 MESSAGE=""
 
 render_cmd() {
@@ -67,8 +67,7 @@ CMD_TEMPLATE="${!CMD_VAR_NAME:-}"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   if [[ -n "$CMD_TEMPLATE" ]]; then
-    COMMAND_USED="$(render_cmd "$CMD_TEMPLATE")"
-    MESSAGE="dry_run: command resolved"
+    MESSAGE="dry_run: deploy command configured (redacted)"
   else
     MESSAGE="dry_run: no deploy command configured; sequence preview only"
   fi
@@ -78,8 +77,8 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   echo " tag: $TAG"
   echo " actor: $ACTOR"
   echo " artifact_dir: $ARTIFACT_DIR"
-  if [[ -n "$COMMAND_USED" ]]; then
-    echo " command: $COMMAND_USED"
+  if [[ -n "$CMD_TEMPLATE" ]]; then
+    echo " command: configured (redacted)"
   fi
 else
   if [[ -z "$CMD_TEMPLATE" ]]; then
@@ -87,9 +86,10 @@ else
     MESSAGE="Missing $CMD_VAR_NAME. Refusing real deploy without explicit deploy command."
     echo "[release_deploy] $MESSAGE" >&2
   else
-    COMMAND_USED="$(render_cmd "$CMD_TEMPLATE")"
+    COMMAND_EXECUTED=1
+    DEPLOY_CMD="$(render_cmd "$CMD_TEMPLATE")"
     echo "[release_deploy] executing deploy for $ENVIRONMENT tag=$TAG"
-    if ! bash -lc "$COMMAND_USED"; then
+    if ! bash -lc "$DEPLOY_CMD"; then
       RESULT="failure"
       MESSAGE="Deploy command failed for env=$ENVIRONMENT"
       echo "[release_deploy] $MESSAGE" >&2
@@ -111,7 +111,10 @@ cat > "$SUMMARY_PATH" <<EOF
   "dry_run": $([[ "$DRY_RUN" -eq 1 ]] && echo true || echo false),
   "result": "${RESULT}",
   "message": "${MESSAGE}",
-  "command_used": "${COMMAND_USED}",
+  "command_configured": $([[ -n "$CMD_TEMPLATE" ]] && echo true || echo false),
+  "command_executed": $([[ "$COMMAND_EXECUTED" -eq 1 ]] && echo true || echo false),
+  "command_redacted": true,
+  "command_source_env": "${CMD_VAR_NAME}",
   "started_at": "${STARTED_AT}",
   "ended_at": "${ENDED_AT}"
 }

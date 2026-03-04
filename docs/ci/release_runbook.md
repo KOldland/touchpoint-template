@@ -2,6 +2,19 @@
 
 CIC-08 provides staged release orchestration: `staging -> canary -> production` with deterministic gates and rollback.
 
+## Immediate Rollback (first response)
+
+Run this immediately when canary/prod health degrades:
+
+```bash
+bash scripts/release_rollback.sh --tag=<last-stable-tag> --reason="emergency_rollback"
+```
+
+Expected artifacts:
+- `artifacts/release/rollback/feature-flag-toggle-khm_membership_transactional_emails_enabled.json`
+- `artifacts/release/rollback/feature-flag-audit.jsonl`
+- `artifacts/release/rollback/rollback-summary.json`
+
 ## Preconditions
 
 - PR approvals complete.
@@ -78,7 +91,7 @@ bash scripts/release_rollback.sh --tag=previous-tag --reason="canary_failure"
 
 Release gate script checks:
 - fast golden parity (`scripts/golden_check.php`)
-- smoke harness (if present; otherwise marked skipped when allowed)
+- smoke harness (required; missing harness fails the gate)
 - synthetic failure toggle for rollback drills
 
 ## Rollback Policy
