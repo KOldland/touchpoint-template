@@ -6,10 +6,21 @@ $options = wh_parse_options($argv);
 $input_path = (string)($options['input'] ?? 'artifacts/weekly-workflow-runs.json');
 $output_json = (string)($options['output-json'] ?? 'artifacts/weekly-health-report.json');
 $output_md = (string)($options['output-md'] ?? 'artifacts/weekly-health-report.md');
+$telemetry_path = (string)($options['telemetry'] ?? 'artifacts/weekly-health-telemetry.json');
 $window_days = max(1, (int)($options['window-days'] ?? 7));
 
 $input = wh_read_json($input_path);
 $workflows = is_array($input['workflows'] ?? null) ? $input['workflows'] : array();
+$run_id = (string)($options['run-id'] ?? getenv('GITHUB_RUN_ID') ?: 'local');
+
+$telemetry = array(
+	array(
+		'event' => 'cic.weekly_health.started',
+		'run_id' => $run_id,
+		'window_days' => $window_days,
+		'timestamp' => gmdate('c'),
+	),
+);
 
 $golden_runs = wh_cast_runs($workflows['golden-check'] ?? array());
 $smoke_runs = wh_cast_runs($workflows['smoke-harness'] ?? array());
@@ -26,8 +37,34 @@ $report = array(
 	'alerts' => wh_compute_alerts($golden_runs, $smoke_runs, $flaky_runs),
 );
 
+foreach ($report['alerts'] as $alert) {
+	if (!is_array($alert)) {
+		continue;
+	}
+	$telemetry[] = array(
+		'event' => 'cic.weekly_health.alert',
+		'run_id' => $run_id,
+		'severity' => (string)($alert['severity'] ?? 'P?'),
+		'code' => (string)($alert['code'] ?? 'unknown'),
+		'message' => (string)($alert['message'] ?? 'alert'),
+		'timestamp' => gmdate('c'),
+	);
+}
+
+$telemetry[] = array(
+	'event' => 'cic.weekly_health.completed',
+	'run_id' => $run_id,
+	'window_days' => $window_days,
+	'alert_count' => count($report['alerts']),
+	'golden_total_runs' => (int)($report['metrics']['golden_check']['total_runs'] ?? 0),
+	'smoke_total_runs' => (int)($report['metrics']['smoke_harness']['total_runs'] ?? 0),
+	'flaky_total_runs' => (int)($report['metrics']['flaky_detect']['total_runs'] ?? 0),
+	'timestamp' => gmdate('c'),
+);
+
 wh_prepare_dir(dirname($output_json));
 wh_prepare_dir(dirname($output_md));
+wh_prepare_dir(dirname($telemetry_path));
 
 $json = json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 if ($json === false) {
@@ -36,10 +73,17 @@ if ($json === false) {
 }
 file_put_contents($output_json, $json . PHP_EOL);
 file_put_contents($output_md, wh_to_markdown($report));
+$telemetry_json = json_encode($telemetry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+if ($telemetry_json === false) {
+	fwrite(STDERR, "Unable to encode weekly health telemetry JSON.\n");
+	exit(1);
+}
+file_put_contents($telemetry_path, $telemetry_json . PHP_EOL);
 
 $alert_count = is_array($report['alerts']) ? count($report['alerts']) : 0;
 fwrite(STDOUT, "Weekly health report: {$output_json}\n");
 fwrite(STDOUT, "Weekly health markdown: {$output_md}\n");
+fwrite(STDOUT, "Weekly health telemetry: {$telemetry_path}\n");
 fwrite(STDOUT, "Alert count: {$alert_count}\n");
 exit(0);
 

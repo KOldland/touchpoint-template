@@ -11,6 +11,9 @@ Key events emitted by CIC scripts:
 - `cic.golden_check.failure.detail`
 - `cic.retrial`
 - `cic.flaky_tests.detected`
+- `cic.weekly_health.started`
+- `cic.weekly_health.alert`
+- `cic.weekly_health.completed`
 
 Primary CI artifacts:
 
