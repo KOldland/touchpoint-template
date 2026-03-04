@@ -77,6 +77,13 @@ jobs:
           fi
           echo "✓ No real API keys detected"
 
+      - name: Secret preflight (CIC deterministic profile)
+        run: |
+          mkdir -p artifacts/smma-ci
+          php scripts/secret_preflight.php \
+            --profile cic-ci \
+            --output artifacts/smma-ci/secret-preflight.json
+
       - name: Run PHPUnit - MockLLM Deterministic Tests
         working-directory: app/public/wp-content/plugins/kh-smma
         run: |
@@ -172,6 +179,14 @@ jobs:
           echo "- CI Mode: Enabled"
           echo "- Mock LLM: Active (golden stubs)"
           echo "- Test Environment: Safe (no live API calls)"
+
+      - name: Upload secret preflight artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smma-ci-secret-artifacts
+          path: artifacts/smma-ci
+          if-no-files-found: warn
 
   lint:
     name: PHP Code Standards
