@@ -1,0 +1,46 @@
+{
+  "dashboard": "Release Health",
+  "version": 1,
+  "owner": "@ops-oncall",
+  "description": "Release orchestration events, smoke failures, and canary progression health.",
+  "panels": [
+    {
+      "id": "cic_release_started",
+      "title": "Release Started",
+      "type": "timeseries",
+      "query": "cic_release_started_total",
+      "unit": "count"
+    },
+    {
+      "id": "cic_release_failed",
+      "title": "Release Failed",
+      "type": "timeseries",
+      "query": "cic_release_failed_total",
+      "unit": "count",
+      "thresholds": [
+        {"severity": "p0", "op": ">", "value": 0}
+      ]
+    },
+    {
+      "id": "smoke_harness_failure_rate",
+      "title": "Smoke Harness Failure Rate (1h)",
+      "type": "timeseries",
+      "query": "smoke_harness_failure_rate",
+      "unit": "percent",
+      "thresholds": [
+        {"severity": "p1", "op": ">", "value": 5}
+      ]
+    },
+    {
+      "id": "canary_rollout_percent",
+      "title": "Canary Rollout Percent",
+      "type": "timeseries",
+      "query": "feature_flag_rollout_pct{flag=\"khm_membership_transactional_emails_enabled\"}",
+      "unit": "percent"
+    }
+  ],
+  "links": {
+    "runbook": "docs/ci/release_runbook.md",
+    "observability_runbook": "docs/observability/alerting_runbook.md"
+  }
+}

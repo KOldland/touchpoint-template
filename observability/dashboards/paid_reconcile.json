@@ -1,0 +1,49 @@
+{
+  "dashboard": "Paid/Reconcile Health",
+  "version": 1,
+  "owner": "@paid-owner",
+  "description": "Paid adapter execution and reconciliation discrepancy monitoring.",
+  "panels": [
+    {
+      "id": "paid_adapter_execute_success",
+      "title": "Paid Adapter Execute Success",
+      "type": "timeseries",
+      "query": "paid_adapter_execute_success_total",
+      "unit": "count"
+    },
+    {
+      "id": "paid_adapter_execute_failure",
+      "title": "Paid Adapter Execute Failure",
+      "type": "timeseries",
+      "query": "paid_adapter_execute_failure_total",
+      "unit": "count",
+      "thresholds": [
+        {"severity": "p1", "op": ">", "value": 3}
+      ]
+    },
+    {
+      "id": "paid_reconciliation_discrepancy_alert",
+      "title": "Reconciliation Discrepancy Alerts (1h)",
+      "type": "timeseries",
+      "query": "paid_reconciliation_discrepancy_alert_count",
+      "unit": "count",
+      "thresholds": [
+        {"severity": "p0", "op": ">", "value": 5}
+      ]
+    },
+    {
+      "id": "reconciliation_latency_p90",
+      "title": "Reconciliation Latency p90",
+      "type": "timeseries",
+      "query": "paid_reconciliation_latency_p90_ms",
+      "unit": "milliseconds",
+      "thresholds": [
+        {"severity": "p1", "op": ">", "value": 900000}
+      ]
+    }
+  ],
+  "links": {
+    "runbook": "docs/observability/alerting_runbook.md",
+    "reconcile_spec": "docs/contracts/paid-reconciliation-contract.md"
+  }
+}

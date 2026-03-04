@@ -1,0 +1,51 @@
+version: 1
+name: membership-alerts
+owner: "@membership-owner"
+runbook: "docs/observability/alerting_runbook.md"
+alerts:
+  - id: membership_email_failed_p1
+    severity: P1
+    condition: "membership_email_failed > 5 per hour OR membership_email_failed_rate > 0.01"
+    route:
+      - slack:#membership-alerts
+      - email:membership-ops
+    escalation:
+      after_minutes: 60
+      action: escalate_to_pager
+    payload_fields:
+      - run_id
+      - environment
+      - conversion_count
+      - owner_hint
+      - runbook_url
+
+  - id: webhook_sig_invalid_p1
+    severity: P1
+    condition: "webhook_sig_invalid_count > 20 for 15m"
+    route:
+      - slack:#membership-alerts
+      - email:membership-ops
+    escalation:
+      after_minutes: 60
+      action: escalate_to_pager
+    payload_fields:
+      - run_id
+      - source_ip
+      - path
+      - owner_hint
+      - runbook_url
+
+  - id: membership_attribution_missing_p1
+    severity: P1
+    condition: "membership_attribution_missing > 0 for 30m"
+    route:
+      - slack:#membership-alerts
+      - email:membership-ops
+    escalation:
+      after_minutes: 60
+      action: escalate_to_pager
+    payload_fields:
+      - run_id
+      - checkout_session_id
+      - owner_hint
+      - runbook_url
