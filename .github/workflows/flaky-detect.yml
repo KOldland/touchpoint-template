@@ -5,6 +5,10 @@ on:
     - cron: '30 2 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   flaky-detect:
     name: flaky-detect
@@ -31,8 +35,55 @@ jobs:
             --test app/public/wp-content/plugins/kh-smma/tests/Lib/MockLLMClientTest.php \
             --runs 10 \
             --owner @ci-qa-team \
+            --flake-threshold 0.2 \
+            --label flake-investigate \
             --append-doc docs/ci/flaky_tests.md \
-            --output artifacts/flaky-report.json || true
+            --output artifacts/flaky-report.json \
+            --telemetry artifacts/flaky-telemetry.json \
+            --label-signal artifacts/flaky-label-signal.json || true
+
+      - name: Create flaky investigation issue (threshold exceeded)
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const signalPath = 'artifacts/flaky-label-signal.json';
+            const reportPath = 'artifacts/flaky-report.json';
+            if (!fs.existsSync(signalPath)) {
+              core.info('No flaky signal generated.');
+              return;
+            }
+
+            const signal = JSON.parse(fs.readFileSync(signalPath, 'utf8'));
+            if (!signal.apply_label) {
+              core.info('Flaky signal present but below threshold.');
+              return;
+            }
+
+            const report = fs.existsSync(reportPath) ? JSON.parse(fs.readFileSync(reportPath, 'utf8')) : {};
+            const summary = report.summary || {};
+            const title = `CIC flaky-detect: ${summary.classification || 'flaky'} (${(summary.fail_rate || 0)})`;
+            const body = [
+              'Automated flaky detector exceeded threshold.',
+              '',
+              `- Owner: ${signal.owner || '@ci-qa-team'}`,
+              `- Suggested label: \`${signal.label || 'flake-investigate'}\``,
+              `- Command: \`${signal.command || 'unknown'}\``,
+              `- Fail rate: ${summary.fail_rate ?? 'n/a'}`,
+              `- Total runs: ${summary.total_runs ?? 'n/a'}`,
+              '',
+              'Artifacts: flaky-report, flaky-telemetry, flaky-label-signal',
+              `Run: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+            });
 
       - name: Upload flaky report artifact
         if: always()
@@ -41,5 +92,7 @@ jobs:
           name: flaky-report
           path: |
             artifacts/flaky-report.json
+            artifacts/flaky-telemetry.json
+            artifacts/flaky-label-signal.json
             docs/ci/flaky_tests.md
           if-no-files-found: warn

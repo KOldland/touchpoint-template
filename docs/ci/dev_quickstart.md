@@ -42,6 +42,17 @@ Exit codes:
 - `1` stable fail
 - `2` flaky
 
+## 5b. Retry a transient CI step locally
+
+```bash
+php scripts/ci_retry_wrapper.php \
+  --step golden-check-deep \
+  --attempts 2 \
+  --backoff 2 \
+  --transient-exit-codes "75,137,143,255" \
+  --command "php scripts/golden_check.php --output artifacts/golden-summary.json --diff-dir artifacts/golden-diffs --zip artifacts/golden-diff.zip"
+```
+
 ## 6. Render diff artifact HTML
 
 ```bash
@@ -64,6 +75,16 @@ docker compose -f ci/dev-compose.yml exec php bash -lc \
 ```
 
 This runs `php scripts/secret_scan.php` before each commit.
+
+## 9. Build combined CI triage report
+
+```bash
+php scripts/ci_triage_report.php \
+  --golden-summary artifacts/golden-summary.json \
+  --flaky-report artifacts/flaky-report.json \
+  --output artifacts/ci-triage-report.json \
+  --markdown artifacts/ci-triage-report.md
+```
 
 ## Common golden-check failures
 

@@ -1,0 +1,145 @@
+name: CIC Weekly Reliability Health
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  weekly-health:
+    name: weekly-health
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Collect workflow runs (7-day window)
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            async function fetchRuns(workflowId) {
+              const perPage = 100;
+              const runs = [];
+              let page = 1;
+              while (true) {
+                const resp = await github.rest.actions.listWorkflowRuns({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: workflowId,
+                  per_page: perPage,
+                  page,
+                });
+                const batch = resp.data.workflow_runs || [];
+                if (batch.length === 0) {
+                  break;
+                }
+                runs.push(...batch.map(r => ({
+                  id: r.id,
+                  name: r.name,
+                  status: r.status,
+                  conclusion: r.conclusion,
+                  created_at: r.created_at,
+                  run_started_at: r.run_started_at,
+                  updated_at: r.updated_at,
+                  html_url: r.html_url,
+                  event: r.event,
+                })));
+                if (batch.length < perPage) {
+                  break;
+                }
+                page += 1;
+              }
+              return runs;
+            }
+
+            function filterDays(runs, days) {
+              const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+              return runs.filter(r => {
+                const created = Date.parse(r.created_at || '');
+                return Number.isFinite(created) && created >= cutoff;
+              });
+            }
+
+            const workflows = {
+              'golden-check': filterDays(await fetchRuns('golden-check.yml'), 7),
+              'smoke-harness': filterDays(await fetchRuns('smoke-harness.yml').catch(() => []), 7),
+              'flaky-detect': filterDays(await fetchRuns('flaky-detect.yml'), 7),
+            };
+
+            fs.mkdirSync('artifacts', { recursive: true });
+            fs.writeFileSync(
+              path.join('artifacts', 'weekly-workflow-runs.json'),
+              JSON.stringify({ generated_at: new Date().toISOString(), workflows }, null, 2)
+            );
+
+      - name: Build weekly health report
+        run: |
+          php scripts/cic_weekly_health_report.php \
+            --input artifacts/weekly-workflow-runs.json \
+            --output-json artifacts/weekly-health-report.json \
+            --output-md artifacts/weekly-health-report.md
+
+      - name: Publish workflow summary
+        run: cat artifacts/weekly-health-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Raise issue when SLA alerts are present
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reportPath = 'artifacts/weekly-health-report.json';
+            if (!fs.existsSync(reportPath)) {
+              core.info('No weekly report found.');
+              return;
+            }
+
+            const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+            const alerts = Array.isArray(report.alerts) ? report.alerts : [];
+            if (alerts.length === 0) {
+              core.info('No SLA alerts detected.');
+              return;
+            }
+
+            const title = `CIC weekly reliability alerts (${new Date().toISOString().slice(0, 10)})`;
+            const body = [
+              'Automated CIC weekly reliability report detected SLA alerts.',
+              '',
+              ...alerts.map(a => `- [${a.severity || 'P?'}] ${a.message || a.code || 'alert'}`),
+              '',
+              `Run: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+              'Artifact: weekly-health-artifacts',
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+            });
+
+      - name: Upload weekly health artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-health-artifacts
+          path: |
+            artifacts/weekly-workflow-runs.json
+            artifacts/weekly-health-report.json
+            artifacts/weekly-health-report.md
+          if-no-files-found: warn
