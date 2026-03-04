@@ -1,103 +1,76 @@
-# CIC Secrets and Key Management
+# CIC Secrets Runbook
 
-This document defines canonical secret names and where they must be provisioned.
+## Purpose
+Define canonical secret names, storage locations, and safe usage for CIC pipelines and release scripts.
 
-## Policy
+## Owner
+- Primary: `@KOldland`
+- Ops secret management owner: `@ops-oncall`
 
-- Never commit secrets, API keys, webhook secrets, salts, or vault tokens to the repository.
-- Never place secrets in golden fixtures, runbook screenshots, CI logs, or PR comments.
-- Use environment injection only (GitHub Actions secrets and/or Ops vault).
+## Canonical secret names
+Runtime secrets:
+- `KH_STRIPE_SECRET_KEY`
+- `KH_STRIPE_WEBHOOK_SECRET`
+- `KHM_ANON_SALT`
+- `PAID_API_KEY`
+- `PAID_API_SECRET`
 
-## Canonical Secret Names
+CI aliases:
+- `STRIPE_TEST_KEY` -> mapped to `KH_STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET` -> mapped to `KH_STRIPE_WEBHOOK_SECRET`
 
-CIC and runtime names used across workflows/scripts:
+Non-secret CIC controls:
+- `KH_SMMA_TEST_MODE`
+- `KH_SMMA_GOLDEN_FIXTURE`
 
-- `KH_SMMA_TEST_MODE` (non-secret, expected `ci` for deterministic tests)
-- `KH_SMMA_GOLDEN_FIXTURE` (non-secret fixture selector)
-- `KH_STRIPE_SECRET_KEY` (secret)
-- `KH_STRIPE_WEBHOOK_SECRET` (secret)
-- `KHM_ANON_SALT` (secret)
-- `PAID_API_KEY` (secret)
-- `PAID_API_SECRET` (secret)
+## Storage policy
+- GitHub Actions secrets for CI/test values.
+- Ops vault/platform secret manager for staging/production values.
+- Never store secret values in repo files, fixtures, or screenshots.
 
-CI-only secret aliases (GitHub Actions):
+## Prerequisites
+- Secret values configured in GitHub repository settings and/or Ops vault.
+- `scripts/secret_scan.php` and `scripts/secret_preflight.php` available.
 
-- `STRIPE_TEST_KEY` (mapped to `KH_STRIPE_SECRET_KEY` in CI)
-- `STRIPE_WEBHOOK_SECRET` (mapped to `KH_STRIPE_WEBHOOK_SECRET` in CI)
-
-## Where to Set Secrets
-
-1. GitHub Actions repository secrets
-- Use: Settings -> Secrets and variables -> Actions.
-- Minimum for webhook CI: `STRIPE_TEST_KEY`, `STRIPE_WEBHOOK_SECRET`.
-- Optional runtime preflight examples: `KH_STRIPE_SECRET_KEY`, `KH_STRIPE_WEBHOOK_SECRET`, `KHM_ANON_SALT`.
-
-2. Ops vault / platform secret manager
-- Preferred for production/runtime secrets.
-- Inject during deploy/runner boot (template: `ops/fetch_secrets.sh`).
-
-## CI Injection Pattern
-
-Example env mapping in workflows:
-
-```yaml
-env:
-  KH_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_KEY }}
-  KH_STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-```
-
-Then validate with preflight:
-
-```bash
-php scripts/secret_preflight.php --profile khm-webhooks --output artifacts/secret-preflight.json
-```
-
-## Local Development
-
-1. Copy placeholders:
-
-```bash
-cp ci/example.env .env.local.secrets
-chmod 600 .env.local.secrets
-```
-
-2. Load local values (untracked file only):
-
-```bash
-./scripts/load_local_secrets.sh
-```
-
-3. Scan before commit/push:
-
+## Commands
+Local scan (strict):
 ```bash
 php scripts/secret_scan.php --strict
 ```
 
-## CI Secret Scan Modes
-
-Fast local/PR mode (changed files):
-
+Changed-files scan (fast):
 ```bash
-php scripts/secret_scan.php --changed --strict
+php scripts/secret_scan.php --strict --changed
 ```
 
-Full mode (entire repository):
-
+CI preflight example:
 ```bash
-php scripts/secret_scan.php --strict --output artifacts/secret-scan-findings.json --telemetry artifacts/secret-scan-telemetry.json
+php scripts/secret_preflight.php --profile cic-ci --output artifacts/secret-preflight-ci.json
 ```
 
-Telemetry events emitted:
+## Artifacts
+- `artifacts/secret-scan-*.json`
+- `artifacts/secret-scan-*-telemetry.json`
+- `artifacts/secret-preflight-ci.json`
 
+Telemetry:
 - `cic.secret_scan.passed`
 - `cic.secret_scan.failed`
 
-## Branch Protection Guidance
+## Failure modes and triage
+1. Secret scan finding:
+- Remove or replace literal with env lookup.
+- Re-run strict scan before commit.
 
-Ops should mark these checks as required for protected branches:
+2. Preflight missing secret:
+- Add required secret in GH Actions or vault.
+- Re-run preflight and attach updated artifact.
 
-- `secret-scan-local`
-- `secret-preflight-ci`
-- `secret-scan-full`
+3. False-positive entropy detection:
+- Rename ambiguous token-like literals and re-scan.
 
-If the repository uses the consolidated CIC workflow, ensure its `secret-scan` job is also required.
+## PM sign-off checklist
+- [ ] All required secret names documented (without values).
+- [ ] CI secret-scan artifact attached and clean.
+- [ ] Preflight artifact attached for CIC workflow profile.
+- [ ] No runbook contains real secret values.

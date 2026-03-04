@@ -1,74 +1,73 @@
-# Secrets Rotation Runbook
+# CIC Secrets Rotation Runbook
 
-This runbook covers rotation steps for CIC/runtime secrets and required validation.
+## Purpose
+Provide safe, repeatable rotation steps for CIC-impacting secrets.
 
-## Preconditions
+## Owner
+- Primary: `@ops-oncall`
+- CIC validation owner: `@KOldland`
 
-- Open an Ops ticket with owner + maintenance window.
-- Confirm rollback path exists before changing secrets.
-- Ensure `scripts/secret_scan.php --strict` passes before and after rotation PRs.
+## Prerequisites
+- Change ticket opened with owner + ETA.
+- Rollback plan documented.
+- Dry-run validation window scheduled.
 
-## 1) Rotate `KHM_ANON_SALT`
-
-Impact:
-- This changes deterministic anonymization behavior for newly generated hashes.
-- Historical hash correlation may be impacted unless the system keeps legacy salt strategy.
-
+## Rotation: `KHM_ANON_SALT`
 Steps:
-1. Generate new random salt in vault.
-2. Update runtime injection source (`ops/fetch_secrets.sh` pattern / platform secret store).
-3. Deploy to staging first.
-4. Run smoke checks for new records and verify expected anonymized output behavior.
-5. If required by product policy, execute recomputation job for new windows only.
+1. Generate new salt in vault.
+2. Update runtime secret injection.
+3. Deploy to staging.
+4. Verify new records hash correctly.
 
-Validation checklist:
-- New writes produce valid `reference_hash` values.
-- No runtime errors on anonymization code paths.
-- Monitoring shows normal event volumes.
+Validation commands:
+```bash
+php scripts/secret_scan.php --strict
+php scripts/secret_preflight.php --profile cic-ci --output artifacts/secret-preflight-ci.json
+```
 
-## 2) Rotate `KH_STRIPE_WEBHOOK_SECRET`
-
-Expected side effect:
-- Short-term increase in invalid signature events while endpoints/secrets propagate.
-
+## Rotation: `KH_STRIPE_WEBHOOK_SECRET`
 Steps:
-1. In Stripe dashboard, roll webhook signing secret.
-2. Update secret manager value for `KH_STRIPE_WEBHOOK_SECRET`.
-3. Deploy/restart services consuming the secret.
-4. Trigger staging webhook events and confirm valid processing.
-5. Monitor `webhook.invalid_signature` for a temporary spike and return to baseline.
+1. Rotate webhook secret in Stripe dashboard.
+2. Update vault/GH secret.
+3. Redeploy webhook consumers.
+4. Trigger staging webhook test events.
 
-Validation checklist:
-- Valid signed webhooks succeed.
-- Invalid signatures still reject with `400`.
-- No sustained alert breach after propagation window.
+Expected transient effect:
+- temporary rise in invalid-signature events during propagation.
 
-## 3) Rotate `KH_STRIPE_SECRET_KEY`
-
+## Rotation: `KH_STRIPE_SECRET_KEY`
 Steps:
-1. Create/roll API key in Stripe.
-2. Update secret manager value.
-3. Run staging API smoke checks.
-4. Confirm no payment/auth regressions.
+1. Rotate Stripe API key.
+2. Update secure store.
+3. Run staging payment API smoke checks.
 
-## 4) Rotate LLM Provider Keys
-
-CIC behavior note:
-- CIC deterministic tests use MockLLM and should not require real LLM keys.
+## Rotation: LLM keys
+CIC note:
+- CIC deterministic checks do not require live LLM keys.
 
 Steps:
 1. Rotate provider key in vault.
-2. Confirm CI still runs with `KH_SMMA_TEST_MODE=ci` and no live-key usage in CIC jobs.
-3. Run integration jobs (if any) in controlled environment.
+2. Confirm CIC jobs still run with `KH_SMMA_TEST_MODE=ci`.
+3. Confirm no secret appears in artifacts/logs.
 
-## Ops Evidence to Attach
+## Artifacts to attach
+- Rotation ticket link.
+- Time and actor.
+- Post-rotation preflight artifact.
+- Staging smoke evidence.
+- Observability screenshot/log showing return to baseline.
 
-- Secret update ticket link and timestamp.
-- Staging smoke run artifact link.
-- Alert screenshot/log for expected transient signal (if applicable).
-- Confirmation that post-rotation scans pass:
+## Failure modes and triage
+1. Persistent invalid signature spike:
+- Confirm webhook secret sync in all environments.
+- Temporarily pause rollout and revert to known-good secret if needed.
 
-```bash
-php scripts/secret_scan.php --strict
-php scripts/secret_preflight.php --profile khm-webhooks
-```
+2. API auth failures after key rotation:
+- Validate key scope and environment mapping.
+- Roll back key update while investigating.
+
+## PM sign-off checklist
+- [ ] Rotation steps completed in staging first.
+- [ ] Post-rotation scans and preflight clean.
+- [ ] Expected transient telemetry behavior observed and resolved.
+- [ ] Evidence attached with timestamps and owner.

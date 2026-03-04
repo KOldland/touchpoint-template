@@ -1,126 +1,115 @@
 # CIC Release Runbook
 
-CIC-08 provides staged release orchestration: `staging -> canary -> production` with deterministic gates and rollback.
-
 ## Immediate Rollback (first response)
-
-Run this immediately when canary/prod health degrades:
 
 ```bash
 bash scripts/release_rollback.sh --tag=<last-stable-tag> --reason="emergency_rollback"
 ```
 
-Expected artifacts:
+Expected rollback artifacts:
 - `artifacts/release/rollback/feature-flag-toggle-khm_membership_transactional_emails_enabled.json`
 - `artifacts/release/rollback/feature-flag-audit.jsonl`
 - `artifacts/release/rollback/rollback-summary.json`
 
-## Preconditions
+## Purpose
+Execute safe staged release orchestration: dry-run -> staging -> canary -> full enable -> rollback if needed.
 
-- PR approvals complete.
-- Required checks green: golden-check, secret-scan, secret-preflight.
-- Branch protection enforces release policy.
-- Ops contacts and on-call path confirmed.
+## Owner
+- Primary: `@KOldland`
+- Release operations escalation: `@ops-oncall`
 
-## Workflow
+## Prerequisites
+- Workflow file: `.github/workflows/release.yml`
+- Required checks green: `golden-check`, `secret-scan`, `secret-preflight`
+- Feature flag default in production: `khm_membership_transactional_emails_enabled=0`
+- Release command env vars configured in runner:
+  - `RELEASE_DEPLOY_CMD_STAGING`
+  - `RELEASE_DEPLOY_CMD_CANARY`
+  - `RELEASE_DEPLOY_CMD_PROD`
+  - `RELEASE_ROLLBACK_CMD`
 
-Workflow: `.github/workflows/release.yml`
+Note: PM brief may reference `mem_release_gate_check.php`; canonical committed command is `php scripts/release_gate_check.php`.
 
-Triggers:
-- `workflow_dispatch` (manual)
-- tag push `release/**`
-
-Stages:
-1. Staging deploy
-2. Staging gate checks (golden + smoke)
-3. Canary flag rollout
-4. Canary gate checks + observation window
-5. Production deploy + full enable
-6. Automatic rollback on canary/prod failure
-
-## Required Environment Variables / Commands
-
-Real deploy/rollback commands are injected via environment/runner:
-
-- `RELEASE_DEPLOY_CMD_STAGING`
-- `RELEASE_DEPLOY_CMD_CANARY`
-- `RELEASE_DEPLOY_CMD_PROD`
-- `RELEASE_ROLLBACK_CMD`
-
-Optional:
-- `RELEASE_MEM_E2E_CMD`
-- `RELEASE_A11Y_CMD`
-
-Command templates support placeholders:
-- `{TAG}` release tag
-- `{ENV}` target environment
-
-## Manual Commands (local/ops)
-
-Dry-run preview:
-
+## Commands
+Dry-run deploy preview:
 ```bash
-bash scripts/release_deploy.sh --env=staging --tag=release-2026-03-xx --dry-run
+bash scripts/release_deploy.sh --env=staging --tag=release-YYYY-MM-DD --artifact-dir=artifacts/release/staging-dryrun --dry-run
+```
+Example output:
+```text
+[release_deploy] dry-run
+ env: staging
+ tag: release-YYYY-MM-DD
 ```
 
-Staging deploy:
-
+Staging gate dry-run (current repo-safe validation):
 ```bash
-bash scripts/release_deploy.sh --env=staging --tag=release-2026-03-xx
+php scripts/release_gate_check.php --env=staging --run-smoke=0 --artifact-dir=artifacts/release/staging-gate-dryrun
 ```
 
-Run release gate checks:
-
+Canary toggle:
 ```bash
-php scripts/release_gate_check.php --env=staging --artifact-dir=artifacts/staging-check
+php scripts/feature_flag_toggle.php \
+  --flag=khm_membership_transactional_emails_enabled \
+  --pct=5 \
+  --enabled=1 \
+  --actor=release-bot \
+  --env=canary \
+  --artifact-dir=artifacts/release/canary
 ```
 
-Promote canary flag:
-
+Manual rollback:
 ```bash
-php scripts/feature_flag_toggle.php --flag=khm_membership_transactional_emails_enabled --pct=5 --enabled=1 --actor=release-bot
+bash scripts/release_rollback.sh --tag=<last-stable-tag> --reason="canary_failure"
 ```
 
-Rollback:
-
-```bash
-bash scripts/release_rollback.sh --tag=previous-tag --reason="canary_failure"
-```
-
-## Health Gates
-
-Release gate script checks:
-- fast golden parity (`scripts/golden_check.php`)
-- smoke harness (required; missing harness fails the gate)
-- synthetic failure toggle for rollback drills
-
-## Rollback Policy
-
-Rollback triggers automatically when canary or production stage fails.
-
-Rollback actions:
-1. Turn off flag and set rollout to `0%`.
-2. Execute rollback command (`RELEASE_ROLLBACK_CMD`) to previous tag.
-3. Emit `cic.release.failed` event and publish artifacts.
+## Release stages
+1. Dry-run preview
+2. Staging deploy
+3. Staging gate checks
+4. Canary 5% enable
+5. Monitoring window (60-120 min)
+6. Full production enable
+7. Rollback on failure
 
 ## Artifacts
+- Deploy: `artifacts/release/<env>/deploy-summary.json`
+- Gate: `artifacts/release/<env>/gate/gate-summary.json`
+- Flag: `artifacts/release/<env>/feature-flag-toggle-*.json`
+- Release summary: `artifacts/release-summary.json`
+- Rollback: `artifacts/release/rollback/rollback-summary.json`
 
-Expected artifacts include:
-- `artifacts/release-summary.json`
-- staging/canary/prod deploy summaries
-- gate summaries (`golden`, `smoke` references)
-- rollback summary (when triggered)
-- release event telemetry (`cic.release.started`, `cic.release.completed`, `cic.release.failed`)
+Sample snippet (redacted command policy):
+```json
+{"command_redacted":true,"command_source_env":"RELEASE_DEPLOY_CMD_STAGING"}
+```
 
-## Access Control
+## Telemetry
+- `cic.release.started`
+- `cic.release.completed`
+- `cic.release.failed`
+- `cic.feature_flag.toggle`
 
-- Limit who can run `workflow_dispatch` (repo Actions permissions + environment protection).
-- Use protected environments (`staging`, `canary`, `production`) with required reviewers.
+Look in observability UI:
+- Release Health dashboard panel `cic_release_failed`
+- Release Health dashboard panel `smoke_harness_failure_rate`
 
-## Incident Notes
+## Failure modes and triage
+1. Gate fails due to missing smoke harness:
+- Expected in strict mode when `scripts/smoke_harness.php` is absent.
+- Use `--run-smoke=0` for dry-run validation only; do not bypass in production rollout.
 
-If release fails:
-1. Inspect `release-summary.json` and gate summaries.
-2. Verify rollback summary completed successfully.
-3. Keep feature flag at `0%` until root cause is resolved.
-4. Open incident ticket with run URL + artifacts.
+2. Canary alert breach:
+- Roll back immediately using command at top of runbook.
+- Attach gate summary + alert evidence.
+
+3. Deploy command missing in non-dry-run:
+- Script fails safely with explicit message.
+- Configure missing `RELEASE_DEPLOY_CMD_*` variable and rerun.
+
+## PM sign-off checklist
+- [ ] Dry-run deploy artifact attached.
+- [ ] Staging gate artifact attached.
+- [ ] Canary toggle artifact attached.
+- [ ] Rollback command and artifacts validated.
+- [ ] Release telemetry events visible in dashboard.
