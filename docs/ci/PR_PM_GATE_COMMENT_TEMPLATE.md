@@ -28,6 +28,16 @@ Artifacts:
 - Alert-fire run log (`alert_fire_run_<id>.json`): `<path-or-link>`
 - CI triage report: `<path-or-link>`
 
+Default local artifact paths from CIC-10 checklist:
+- `artifacts/release_dryrun.log`
+- `artifacts/mem_gate/gate-summary.json`
+- `artifacts/mem_gate/golden-summary.json`
+- `artifacts/smoke/smoke-log.txt`
+- `artifacts/alert_fire_dry.log`
+- `artifacts/observability/alert-fire/alert-fire-summary.json`
+- `artifacts/observability/alert-fire/alert_fire_run_<id>.json`
+- `artifacts/runbook_validation.log`
+
 Observability:
 - CIC Health dashboard URL: `<url>`
 - Membership Health dashboard URL: `<url>`

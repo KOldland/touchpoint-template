@@ -4,6 +4,8 @@ Validation date: `2026-03-04`
 Operator: `@KOldland`
 Branch: `chore/cic-08-release-orchestration`
 
+Latest quick-check evidence date: `2026-03-04` (artifacts in repository `artifacts/`)
+
 ## Validation checklist
 - [x] Release deploy dry-run executed.
 - [x] Release gate dry-run executed (canonical `scripts/release_gate_check.php`).
@@ -60,3 +62,4 @@ Recent PR comment using PM gate structure:
 ## Notes
 - The PM brief references `mem_release_gate_check.php`; repository canonical script is `scripts/release_gate_check.php`.
 - Full smoke harness execution requires `scripts/smoke_harness.php`, which is currently not present in this branch.
+- Latest walkthrough log file: `artifacts/runbook_validation.log`.
