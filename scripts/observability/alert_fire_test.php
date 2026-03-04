@@ -14,8 +14,12 @@ $build_url = (string)($options['build-url'] ?? (getenv('GITHUB_SERVER_URL') && g
 	: 'local-build'));
 $pr_url = (string)($options['pr-url'] ?? 'n/a');
 
+if ($mode === 'live') {
+	$mode = 'emit';
+}
+
 if (!in_array($mode, array('dry-run', 'emit'), true)) {
-	fwrite(STDERR, "--mode must be dry-run or emit\n");
+	fwrite(STDERR, "--mode must be dry-run, emit, or live\n");
 	exit(2);
 }
 if ($mode === 'emit' && $endpoint === '') {
@@ -115,7 +119,7 @@ $events[] = array(
 
 $summary = array(
 	'run_id' => $run_id,
-	'mode' => $mode,
+	'mode' => $mode === 'emit' ? 'live' : $mode,
 	'endpoint' => $mode === 'emit' ? $endpoint : 'n/a',
 	'started_at' => $started_at,
 	'ended_at' => gmdate('c'),
@@ -128,6 +132,7 @@ $summary = array(
 		'events_jsonl' => $output_dir . '/alert-fire-events.jsonl',
 		'notifications_json' => $output_dir . '/alert-fire-notifications.json',
 		'summary_json' => $output_dir . '/alert-fire-summary.json',
+		'run_log_json' => $output_dir . '/alert_fire_run_' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $run_id) . '.json',
 	),
 );
 
@@ -135,6 +140,12 @@ oft_write_json($output_dir . '/alert-fire-events.json', $events);
 oft_write_jsonl($output_dir . '/alert-fire-events.jsonl', $events);
 oft_write_json($output_dir . '/alert-fire-notifications.json', $notifications);
 oft_write_json($output_dir . '/alert-fire-summary.json', $summary);
+oft_write_json($summary['evidence']['run_log_json'], array(
+	'run_id' => $run_id,
+	'summary' => $summary,
+	'notifications' => $notifications,
+	'events_count' => count($events),
+));
 
 fwrite(STDOUT, "alert fire summary: " . $output_dir . "/alert-fire-summary.json\n");
 fwrite(STDOUT, "alerts triggered: " . implode(', ', $summary['alerts_triggered']) . "\n");

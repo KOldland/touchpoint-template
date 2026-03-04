@@ -1,41 +1,136 @@
-# CIC Observability and Alerting (CIC-09 Placeholder)
+# CIC Observability and Alerting Runbook (CIC-10)
 
-This placeholder captures the implemented CIC-09 observability assets. CIC-10 will finalize operator procedures.
+This runbook covers CIC dashboards, alert rules, escalation actions, and reproduction commands for CIC-09 observability assets.
 
-## Dashboards (as code)
+## Scope
 
-- `observability/dashboards/cic_health.json`
-- `observability/dashboards/membership_health.json`
-- `observability/dashboards/paid_reconcile.json`
-- `observability/dashboards/release_health.json`
+Applies to:
+- Golden-check and smoke-harness reliability
+- Membership webhook/email/attribution health signals
+- Paid adapter and reconciliation health signals
+- CIC release orchestration signals
 
-## Alerts (as code)
+Source assets:
+- Dashboards: `observability/dashboards/*.json`
+- Alerts: `observability/alerts/*.yaml`
+- Alert-fire harness: `scripts/observability/alert_fire_test.php`
+- Triage tools: `scripts/extract_golden_diffs.py`, `scripts/ci_triage_report.php`
 
-- `observability/alerts/golden_check_alerts.yaml`
-- `observability/alerts/membership_alerts.yaml`
-- `observability/alerts/paid_alerts.yaml`
+## Dashboard Inventory
 
-Severity policy:
-- `P0`: immediate pager
-- `P1`: Slack + email, escalate to pager after 60 minutes unresolved
-- `P2`: ticket + Slack
+1. CIC Health: `observability/dashboards/cic_health.json`
+- golden_check_failure_rate
+- golden_check_duration_p90
+- golden_check_mismatch_count
+- cic_retrial_rate
+- cic_flaky_tests_detected
 
-## Escalation and notification payload requirements
+2. Membership Health: `observability/dashboards/membership_health.json`
+- membership_attribution_created_total
+- webhook_invalid_signature_total
+- membership_email_failed_total
+- membership_attribution_missing_total
 
-Alert payload must include:
-- run/build link
-- PR link (if available)
-- artifact link (golden diff HTML or gate artifact)
-- fixture owner hint
-- runbook link
-- run id
+3. Paid/Reconcile Health: `observability/dashboards/paid_reconcile.json`
+- paid_adapter_execute_success_total
+- paid_adapter_execute_failure_total
+- paid_reconciliation_discrepancy_alert_count
+- paid_reconciliation_latency_p90_ms
 
-## Alert-fire test harness
+4. Release Health: `observability/dashboards/release_health.json`
+- cic_release_started_total
+- cic_release_failed_total
+- smoke_harness_failure_rate
+- feature_flag_rollout_pct for `khm_membership_transactional_emails_enabled`
 
-Script:
-- `scripts/observability/alert_fire_test.php`
+## Alert Catalog
 
-Dry-run example:
+### P0 alerts (immediate pager)
+- `cic_golden_check_failure_rate_p0`
+  - condition: `golden_check_failure_rate > 10 for 1h`
+- `cic_retrial_rate_p0`
+  - condition: `cic_retrial_rate > 50 for 30m`
+- `paid_reconciliation_discrepancy_p0`
+  - condition: `paid_reconciliation_discrepancy_count > 5 for 1h`
+
+### P1 alerts (Slack/email; escalate to pager after 60m unresolved)
+- `cic_golden_check_duration_p1`
+  - condition: `golden_check_duration_p90 > 600000 for 1h`
+- `membership_email_failed_p1`
+  - condition: `membership_email_failed > 5/hr OR membership_email_failed_rate > 1%`
+- `webhook_sig_invalid_p1`
+  - condition: `webhook_sig_invalid_count > 20 for 15m`
+- `membership_attribution_missing_p1`
+  - condition: `membership_attribution_missing > 0 for 30m`
+- `smoke_harness_failure_rate_p1`
+  - condition: `smoke_harness_failure_rate > 5 for 1h`
+
+### P2 alerts (ticket + Slack)
+- `cic_flaky_tests_detected_p2`
+  - condition: `cic_flaky_tests_detected > 3 for 24h`
+
+## Required Alert Payload Fields
+
+Alert payloads must include:
+- `run_id`
+- build/PR links (`build_url`, `pr_url`)
+- artifact links (`golden-diff.html`, gate artifacts)
+- `owner_hint` for responsible area
+- `runbook_url`
+
+Do not include secrets or personal data in alert body/payload.
+
+## Escalation Procedure
+
+1. P0:
+- Page immediately.
+- Acknowledge in incident channel within 10 minutes.
+- Attach latest artifact links and triage output.
+
+2. P1:
+- Notify Slack/email immediately.
+- If unresolved after 60 minutes, escalate to pager.
+
+3. P2:
+- Create/assign ticket with owner and ETA.
+- Track in weekly CIC reliability review.
+
+## Triage Steps
+
+1. Inspect failure artifacts
+- golden diff HTML (`artifacts/golden-fast/golden-diff.html` or deep equivalent)
+- gate summaries (`gate-summary.json`)
+- flaky report (`flaky-report.json`)
+
+2. Run correlator
+```bash
+php scripts/ci_triage_report.php \
+  --golden-summary artifacts/golden-fast/golden-summary.json \
+  --flaky-report artifacts/flaky-report.json \
+  --golden-telemetry artifacts/golden-fast/golden-telemetry.json \
+  --flaky-telemetry artifacts/flaky-telemetry.json \
+  --output artifacts/ci-triage-report.json \
+  --markdown artifacts/ci-triage-report.md
+```
+
+3. Reproduce mismatch locally
+```bash
+./scripts/ci_local_env.sh
+php scripts/dev_golden_check.php --fixture generate_awareness_ok.json --output artifacts/dev-golden-check
+```
+
+4. If flaky behavior suspected
+```bash
+php scripts/detect_flaky_tests.php \
+  --test app/public/wp-content/plugins/kh-smma/tests/Lib/MockLLMClientTest.php \
+  --runs 10 \
+  --output artifacts/flaky-report.json \
+  --telemetry artifacts/flaky-telemetry.json
+```
+
+## Alert-Fire Test Procedure
+
+Dry run:
 ```bash
 php scripts/observability/alert_fire_test.php \
   --mode=dry-run \
@@ -43,54 +138,56 @@ php scripts/observability/alert_fire_test.php \
   --output-dir=artifacts/observability/alert-fire
 ```
 
-Emit mode example (webhook sink):
+Live/emit run (requires webhook endpoint or `OBS_ALERT_TEST_WEBHOOK`):
 ```bash
 php scripts/observability/alert_fire_test.php \
-  --mode=emit \
-  --endpoint=https://example.invalid/webhook \
+  --mode=live \
+  --endpoint=https://<alert-webhook-endpoint> \
   --alerts=P0,P1,P2 \
+  --run-id=<run-id> \
+  --build-url=<build-url> \
+  --pr-url=<pr-url> \
   --output-dir=artifacts/observability/alert-fire
 ```
 
-Expected evidence artifacts:
+Expected evidence files:
 - `alert-fire-summary.json`
+- `alert-fire-notifications.json`
 - `alert-fire-events.json`
 - `alert-fire-events.jsonl`
-- `alert-fire-notifications.json`
+- `alert_fire_run_<run-id>.json`
 
-## CI self-test
+## CI Self-Test
 
 Workflow:
 - `.github/workflows/observability-selftest.yml`
 
-Behavior:
-- Runs alert-fire harness in dry-run mode (non-blocking)
-- Uploads artifacts for review
-- Supports nightly schedule and manual trigger
-
-## Permissions and governance
-
-Only permitted principals may edit observability assets:
-- CI owner (`@ci-qa-team`) for CIC dashboard and golden-check alerts
-- Observability owner (`@observability-owner`) for escalation routes and notification integrations
-- Ops on-call (`@ops-oncall`) for production pager/webhook routing
-
-Change process:
-1. Open PR with observability file changes.
-2. Attach alert-fire evidence artifact.
-3. Get owner approval for changed scope.
-4. Merge only with CI green and secret-scan clean.
-
-## Triage helpers
-
-- Diff artifact renderer: `scripts/extract_golden_diffs.py`
-- Correlator: `scripts/ci_triage_report.php`
-
-Quick triage command:
+Run manually:
 ```bash
-php scripts/ci_triage_report.php \
-  --golden-summary artifacts/golden-fast/golden-summary.json \
-  --flaky-report artifacts/flaky-report.json \
-  --output artifacts/ci-triage-report.json \
-  --markdown artifacts/ci-triage-report.md
+gh workflow run "CIC Observability Self-Test" --ref chore/cic-08-release-orchestration
 ```
+
+Monitor run:
+```bash
+gh run list --workflow "CIC Observability Self-Test" --limit 5
+gh run view <run-id> --log
+```
+
+## Access Control and Governance
+
+Recommended editors for observability assets:
+- `@KOldland` (current repo owner/operator)
+- future: `@ci-owner`, `@observability-owner`, `@ops-oncall` once added
+
+Change control:
+1. PR required for any dashboard/alert changes.
+2. CI must pass (`secret-scan`, golden checks, observability self-test where applicable).
+3. Attach alert-fire evidence for rule changes.
+4. Require owner review before merge.
+
+## Rollback Actions for Alerting Misconfiguration
+
+If alert noise spikes due to bad thresholds:
+1. Disable/rollback affected alert rule file in PR.
+2. Re-run alert-fire test in dry-run mode.
+3. Re-enable once threshold validation is complete.
