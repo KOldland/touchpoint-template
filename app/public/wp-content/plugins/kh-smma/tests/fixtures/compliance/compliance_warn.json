@@ -1,0 +1,6 @@
+{
+  "mode": "simulated_warn",
+  "input": "This is one of the best options for many teams.",
+  "expected_status": "WARN",
+  "rules_triggered": ["absolute_claim_best"]
+}

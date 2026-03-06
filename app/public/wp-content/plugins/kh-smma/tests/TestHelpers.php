@@ -98,6 +98,7 @@ if ( ! function_exists( 'add_action' ) ) {
 
 if ( ! function_exists( 'do_action' ) ) {
     function do_action( $tag, ...$args ) {
+        $GLOBALS['kh_test_actions'][ $tag ][] = $args;
         apply_filters( $tag, null, ...$args );
     }
 }

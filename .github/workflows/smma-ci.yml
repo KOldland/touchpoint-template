@@ -1,0 +1,40 @@
+name: SMMA CI
+
+on:
+  pull_request:
+    paths:
+      - 'app/public/wp-content/plugins/kh-smma/**'
+      - 'docs/compliance/**'
+      - '.github/workflows/smma-ci.yml'
+  push:
+    branches:
+      - staging
+
+jobs:
+  smma-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/public/wp-content/plugins/kh-smma
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Compliance golden fixture tests
+        run: vendor/bin/phpunit tests/Compliance/ComplianceEngineTest.php
+
+      - name: Compliance workflow smoke
+        run: vendor/bin/phpunit tests/Compliance/ComplianceWorkflowSmokeTest.php
+
+      - name: Compliance UX workflow
+        run: vendor/bin/phpunit tests/Compliance/VariantComplianceWorkflowTest.php

@@ -1,0 +1,6 @@
+{
+  "mode": "validator",
+  "input": "Our service guarantees guaranteed results with no risk.",
+  "expected_status": "FAIL",
+  "rules_triggered": ["banned_phrase_guarantee"]
+}

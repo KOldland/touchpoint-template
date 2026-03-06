@@ -8,6 +8,7 @@ use KH_SMMA\Services\PhaseEngine;
 use KH_SMMA\Services\ScheduleQueueProcessor;
 use KH_SMMA\Services\ComplianceValidator;
 use KH_SMMA\Compliance\SuggestedEditService;
+use KH_SMMA\Compliance\ComplianceTelemetryService;
 use KH_SMMA\Admin\VariantGridComplianceRenderer;
 use WP_Error;
 use WP_REST_Request;
@@ -24,8 +25,9 @@ class RestController {
     private ?ComplianceValidator $compliance_validator;
     private SuggestedEditService $suggested_edit_service;
     private VariantGridComplianceRenderer $compliance_renderer;
+    private ComplianceTelemetryService $compliance_telemetry;
 
-    public function __construct( FeatureFlags $flags, SmmaGenerator $generator, AuditLogger $logger, PhaseEngine $phase_engine = null, ComplianceValidator $compliance_validator = null, SuggestedEditService $suggested_edit_service = null, VariantGridComplianceRenderer $compliance_renderer = null ) {
+    public function __construct( FeatureFlags $flags, SmmaGenerator $generator, AuditLogger $logger, PhaseEngine $phase_engine = null, ComplianceValidator $compliance_validator = null, SuggestedEditService $suggested_edit_service = null, VariantGridComplianceRenderer $compliance_renderer = null, ComplianceTelemetryService $compliance_telemetry = null ) {
         $this->flags = $flags;
         $this->generator = $generator;
         $this->logger = $logger;
@@ -33,6 +35,7 @@ class RestController {
         $this->compliance_validator = $compliance_validator ?? new ComplianceValidator();
         $this->suggested_edit_service = $suggested_edit_service ?? new SuggestedEditService();
         $this->compliance_renderer = $compliance_renderer ?? new VariantGridComplianceRenderer();
+        $this->compliance_telemetry = $compliance_telemetry ?? new ComplianceTelemetryService( $this->logger );
     }
 
     public function register(): void {
@@ -261,6 +264,7 @@ class RestController {
 
         $linkedin_variants = $result['linkedin_variants'] ?? array();
         foreach ( $linkedin_variants as $index => $variant ) {
+            $check_started = microtime( true );
             $notes = (string) ( $variant['compliance_notes'] ?? '' );
             $status = $this->derive_compliance_status( $notes );
             $rules_triggered = $this->suggested_edit_service->infer_rules_from_compliance_notes( $notes );
@@ -291,6 +295,17 @@ class RestController {
                 'variant_id' => (string) ( $variant['variant_id'] ?? '' ),
                 'status'     => $status,
                 'timestamp'  => time(),
+            ) );
+
+            $this->compliance_telemetry->record_check( array(
+                'trace_id'           => uniqid( 'comp-', true ),
+                'variant_id'         => (string) ( $variant['variant_id'] ?? '' ),
+                'status'             => $status,
+                'rule_ids_triggered' => $rules_triggered,
+                'suggested_edits'    => $suggested_edits,
+                'input_text'         => (string) ( $variant['text'] ?? '' ),
+                'latency_ms'         => (int) round( ( microtime( true ) - $check_started ) * 1000 ),
+                'timestamp'          => time(),
             ) );
         }
 
@@ -665,10 +680,12 @@ class RestController {
             $updated_text = $this->suggested_edit_service->apply_suggestions( $updated_text, $payload['suggested_edits'] );
         }
 
+        $check_started = microtime( true );
         $compliance_check = $this->compliance_validator->validate( $updated_text, $sponsor_context );
         $compliance_status = $this->derive_compliance_status( (string) ( $compliance_check['notes'] ?? '' ), (bool) ( $compliance_check['passed'] ?? false ) );
         $rules_triggered = $this->derive_rules_from_compliance_result( $compliance_check );
         $suggested_edits = $this->suggested_edit_service->generate_for_text( $updated_text, $rules_triggered );
+        $check_latency_ms = (int) round( ( microtime( true ) - $check_started ) * 1000 );
 
         if ( ! empty( $suggested_edits ) ) {
             do_action( 'kh_smma_telemetry_event', 'compliance.suggested_edit_generated', array(
@@ -680,13 +697,16 @@ class RestController {
         }
 
         if ( ! $compliance_check['passed'] ) {
-            $this->logger->record_event( 'compliance.check', array(
-                'user_id'     => get_current_user_id(),
-                'object_type' => $schedule_id > 0 ? 'schedule' : 'variant',
-                'object_id'   => $schedule_id,
-                'status'      => $compliance_status,
-                'rule_id'     => $rules_triggered,
-                'timestamp'   => current_time( 'mysql' ),
+            $this->compliance_telemetry->record_check( array(
+                'trace_id'           => uniqid( 'comp-', true ),
+                'variant_id'         => (string) ( $schedule_payload['variant_id'] ?? $variant_id ),
+                'schedule_id'        => $schedule_id,
+                'status'             => $compliance_status,
+                'rule_ids_triggered' => $rules_triggered,
+                'suggested_edits'    => $suggested_edits,
+                'input_text'         => $updated_text,
+                'latency_ms'         => $check_latency_ms,
+                'timestamp'          => time(),
             ) );
             return new WP_Error( 'kh_smma_compliance_failed', $compliance_check['message'], array(
                 'status' => 422,
@@ -743,13 +763,16 @@ class RestController {
             ),
             'user_id' => get_current_user_id(),
         ) );
-        $this->logger->record_event( 'compliance.check', array(
-            'user_id'     => get_current_user_id(),
-            'object_type' => $schedule_id > 0 ? 'schedule' : 'variant',
-            'object_id'   => $schedule_id,
-            'status'      => $compliance_status,
-            'rule_id'     => $rules_triggered,
-            'timestamp'   => current_time( 'mysql' ),
+        $this->compliance_telemetry->record_check( array(
+            'trace_id'           => uniqid( 'comp-', true ),
+            'variant_id'         => (string) ( $schedule_payload['variant_id'] ?? $variant_id ),
+            'schedule_id'        => $schedule_id,
+            'status'             => $compliance_status,
+            'rule_ids_triggered' => $rules_triggered,
+            'suggested_edits'    => $suggested_edits,
+            'input_text'         => $updated_text,
+            'latency_ms'         => $check_latency_ms,
+            'timestamp'          => time(),
         ) );
 
         // Enhanced telemetry with diff

@@ -1,0 +1,6 @@
+{
+  "mode": "validator",
+  "input": "This post shares practical guidance for improving campaign planning.",
+  "expected_status": "OK",
+  "rules_triggered": []
+}
