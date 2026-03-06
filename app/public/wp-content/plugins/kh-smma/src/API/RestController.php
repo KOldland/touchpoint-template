@@ -7,6 +7,7 @@ use KH_SMMA\Services\AuditLogger;
 use KH_SMMA\Services\PhaseEngine;
 use KH_SMMA\Services\ScheduleQueueProcessor;
 use KH_SMMA\Services\ComplianceValidator;
+use KH_SMMA\Compliance\SuggestedEditService;
 use WP_Error;
 use WP_REST_Request;
 
@@ -20,13 +21,15 @@ class RestController {
     private AuditLogger $logger;
     private ?PhaseEngine $phase_engine;
     private ?ComplianceValidator $compliance_validator;
+    private SuggestedEditService $suggested_edit_service;
 
-    public function __construct( FeatureFlags $flags, SmmaGenerator $generator, AuditLogger $logger, PhaseEngine $phase_engine = null, ComplianceValidator $compliance_validator = null ) {
+    public function __construct( FeatureFlags $flags, SmmaGenerator $generator, AuditLogger $logger, PhaseEngine $phase_engine = null, ComplianceValidator $compliance_validator = null, SuggestedEditService $suggested_edit_service = null ) {
         $this->flags = $flags;
         $this->generator = $generator;
         $this->logger = $logger;
         $this->phase_engine = $phase_engine;
         $this->compliance_validator = $compliance_validator ?? new ComplianceValidator();
+        $this->suggested_edit_service = $suggested_edit_service ?? new SuggestedEditService();
     }
 
     public function register(): void {
@@ -247,9 +250,36 @@ class RestController {
             )
         );
 
+        $linkedin_variants = $result['linkedin_variants'] ?? array();
+        foreach ( $linkedin_variants as $index => $variant ) {
+            $notes = (string) ( $variant['compliance_notes'] ?? '' );
+            $status = $this->derive_compliance_status( $notes );
+            $rules_triggered = $this->suggested_edit_service->infer_rules_from_compliance_notes( $notes );
+            $suggested_edits = array();
+
+            if ( in_array( $status, array( 'WARN', 'FAIL' ), true ) ) {
+                $suggested_edits = $this->suggested_edit_service->generate_for_text(
+                    (string) ( $variant['text'] ?? '' ),
+                    $rules_triggered
+                );
+
+                do_action( 'kh_smma_telemetry_event', 'compliance.suggested_edit_generated', array(
+                    'trace_id'   => uniqid( 'com-', true ),
+                    'variant_id' => (string) ( $variant['variant_id'] ?? '' ),
+                    'rule_id'    => implode( ',', $rules_triggered ),
+                    'timestamp'  => time(),
+                ) );
+            }
+
+            $linkedin_variants[ $index ]['compliance_status'] = $status;
+            $linkedin_variants[ $index ]['rationale'] = $notes ?: 'No compliance issues detected.';
+            $linkedin_variants[ $index ]['rules_triggered'] = $rules_triggered;
+            $linkedin_variants[ $index ]['suggested_edits'] = $suggested_edits;
+        }
+
         return rest_ensure_response( array(
-            'variants'                => $result['linkedin_variants'] ?? array(),
-            'linkedin_variants'       => $result['linkedin_variants'] ?? array(),
+            'variants'                => $linkedin_variants,
+            'linkedin_variants'       => $linkedin_variants,
             'google_ad_draft'         => $result['google_ad_draft'] ?? array(),
             'google_ad_compliance'    => $google_ad_compliance,
             'model'                   => $result['model'] ?? 'unknown',
@@ -537,7 +567,7 @@ class RestController {
     public function handle_variant_edit( WP_REST_Request $request ) {
         $payload = $request->get_json_params();
         $schedule_id = (int) ( $payload['schedule_id'] ?? 0 );
-        $updated_text = $payload['updated_text'] ?? '';
+        $updated_text = (string) ( $payload['updated_text'] ?? '' );
 
         if ( ! $schedule_id || '' === $updated_text ) {
             return new WP_Error( 'kh_smma_invalid_edit', __( 'schedule_id and updated_text are required.', 'kh-smma' ), array( 'status' => 400 ) );
@@ -566,9 +596,38 @@ class RestController {
             $sponsor_context['allowed_claims'] = $sponsor_meta['allowed_claims'] ?? array();
         }
 
+        if ( ! empty( $payload['apply_all_suggested_fixes'] ) ) {
+            $pre_rules = $this->suggested_edit_service->get_known_rule_ids();
+            $pre_suggestions = $this->suggested_edit_service->generate_for_text( $updated_text, $pre_rules );
+            $updated_text = $this->suggested_edit_service->apply_suggestions( $updated_text, $pre_suggestions );
+        } elseif ( ! empty( $payload['suggested_edits'] ) && is_array( $payload['suggested_edits'] ) ) {
+            $updated_text = $this->suggested_edit_service->apply_suggestions( $updated_text, $payload['suggested_edits'] );
+        }
+
         $compliance_check = $this->compliance_validator->validate( $updated_text, $sponsor_context );
+        $compliance_status = $this->derive_compliance_status( (string) ( $compliance_check['notes'] ?? '' ), (bool) ( $compliance_check['passed'] ?? false ) );
+        $rules_triggered = $this->derive_rules_from_compliance_result( $compliance_check );
+        $suggested_edits = $this->suggested_edit_service->generate_for_text( $updated_text, $rules_triggered );
+
+        if ( ! empty( $suggested_edits ) ) {
+            do_action( 'kh_smma_telemetry_event', 'compliance.suggested_edit_generated', array(
+                'trace_id'   => uniqid( 'com-', true ),
+                'variant_id' => (string) ( $schedule_payload['variant_id'] ?? '' ),
+                'rule_id'    => implode( ',', $rules_triggered ),
+                'timestamp'  => time(),
+            ) );
+        }
+
         if ( ! $compliance_check['passed'] ) {
-            return new WP_Error( 'kh_smma_compliance_failed', $compliance_check['message'], array( 'status' => 422 ) );
+            return new WP_Error( 'kh_smma_compliance_failed', $compliance_check['message'], array(
+                'status' => 422,
+                'compliance' => array(
+                    'status'          => $compliance_status,
+                    'rationale'       => $compliance_check['message'] ?? ( $compliance_check['notes'] ?? '' ),
+                    'rules_triggered' => $rules_triggered,
+                    'suggested_edits' => $suggested_edits,
+                ),
+            ) );
         }
 
         // Calculate unified diff
@@ -588,7 +647,11 @@ class RestController {
             'full_text' => $updated_text,
             'unified_diff' => $unified_diff,
             'timestamp' => time(),
-            'compliance_result' => $compliance_check,
+            'compliance_result' => array_merge( $compliance_check, array(
+                'status' => $compliance_status,
+                'rules_triggered' => $rules_triggered,
+                'suggested_edits' => $suggested_edits,
+            ) ),
         );
         update_post_meta( $schedule_id, '_kh_smma_preview_changes', $preview_changes );
 
@@ -612,9 +675,35 @@ class RestController {
             'compliance_result' => $compliance_check,
         ) );
 
+        if ( 'suggested_edit' === (string) ( $payload['source'] ?? '' ) ) {
+            $rule_ids = is_array( $payload['rule_ids'] ?? null ) ? $payload['rule_ids'] : array();
+            foreach ( $rule_ids as $rule_id ) {
+                do_action( 'kh_smma_telemetry_event', 'compliance.suggested_edit_applied', array(
+                    'trace_id'   => uniqid( 'com-', true ),
+                    'variant_id' => (string) ( $schedule_payload['variant_id'] ?? '' ),
+                    'rule_id'    => sanitize_text_field( (string) $rule_id ),
+                    'timestamp'  => time(),
+                ) );
+            }
+
+            $this->logger->record_event( 'variant.edit', array(
+                'user_id'     => get_current_user_id(),
+                'object_type' => 'schedule',
+                'object_id'   => $schedule_id,
+                'source'      => 'suggested_edit',
+                'rule_id'     => $rule_ids,
+                'timestamp'   => current_time( 'mysql' ),
+            ) );
+        }
+
         return rest_ensure_response( array(
             'status' => 'updated',
-            'compliance' => $compliance_check,
+            'compliance' => array_merge( $compliance_check, array(
+                'status'          => $compliance_status,
+                'rationale'       => $compliance_check['message'] ?? ( $compliance_check['notes'] ?? '' ),
+                'rules_triggered' => $rules_triggered,
+                'suggested_edits' => $suggested_edits,
+            ) ),
         ) );
     }
 
@@ -682,6 +771,41 @@ class RestController {
             'rejected_by' => get_current_user_id(),
             'rejected_at' => time(),
         ) );
+    }
+
+    private function derive_compliance_status( string $notes, bool $passed = true ): string {
+        $normalized = strtolower( $notes );
+        if ( ! $passed ) {
+            if ( false !== strpos( $normalized, 'warn' ) ) {
+                return 'WARN';
+            }
+            return 'FAIL';
+        }
+
+        if ( false !== strpos( $normalized, 'warn' ) ) {
+            return 'WARN';
+        }
+        if ( false !== strpos( $normalized, 'fail' ) ) {
+            return 'FAIL';
+        }
+
+        return 'OK';
+    }
+
+    private function derive_rules_from_compliance_result( array $compliance_result ): array {
+        $rules = array();
+        if ( ! empty( $compliance_result['violation_type'] ) ) {
+            $rules[] = 'missing_claim' === $compliance_result['violation_type'] ? 'unverified_performance' : 'banned_phrase_guarantee';
+        }
+
+        $notes = (string) ( $compliance_result['notes'] ?? '' );
+        $message = (string) ( $compliance_result['message'] ?? '' );
+        $rules = array_merge(
+            $rules,
+            $this->suggested_edit_service->infer_rules_from_compliance_notes( $notes . ' ' . $message )
+        );
+
+        return array_values( array_unique( $rules ) );
     }
 
     /**

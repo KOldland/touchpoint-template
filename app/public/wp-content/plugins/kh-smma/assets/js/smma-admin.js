@@ -55,7 +55,7 @@
         /**
          * Edit variant text
          */
-        editVariant: function(scheduleId, updatedText) {
+        editVariant: function(scheduleId, updatedText, options = {}) {
             return $.ajax({
                 url: `${this.baseUrl}/variant-edit`,
                 method: 'POST',
@@ -64,6 +64,10 @@
                 data: JSON.stringify({
                     schedule_id: scheduleId,
                     updated_text: updatedText,
+                    source: options.source || 'manual',
+                    rule_ids: options.ruleIds || [],
+                    suggested_edits: options.suggestedEdits || [],
+                    apply_all_suggested_fixes: !!options.applyAllSuggestedFixes,
                 }),
             });
         },
@@ -257,6 +261,15 @@
         bindEvents: function() {
             $('#khm-promote-form').on('submit', (e) => this.handleGenerate(e));
             $(document).on('click', '#khm-schedule-variants-btn', () => this.handleSchedule());
+            $(document).on('click', '.khm-apply-single-fix', (e) => {
+                const $btn = $(e.currentTarget);
+                const index = parseInt($btn.data('index'), 10);
+                this.applySingleSuggestion(index, String($btn.data('original') || ''), String($btn.data('suggested') || ''));
+            });
+            $(document).on('click', '.khm-apply-all-fixes', (e) => {
+                const index = parseInt($(e.currentTarget).data('index'), 10);
+                this.applyAllSuggestions(index);
+            });
         },
 
         handleGenerate: function(e) {
@@ -298,7 +311,11 @@
 
             this.generatedVariants.forEach((variant, index) => {
                 const phaseColor = this.getPhaseColor(variant.phase_tag);
-                const complianceColor = this.getComplianceColor(variant.compliance_notes);
+                const complianceStatus = variant.compliance_status || (variant.compliance_notes && variant.compliance_notes.indexOf('WARN') !== -1 ? 'WARN' : 'OK');
+                const complianceColor = this.getComplianceColor(complianceStatus);
+                const rationale = variant.rationale || variant.compliance_notes || 'No compliance rationale provided.';
+                const suggestions = Array.isArray(variant.suggested_edits) ? variant.suggested_edits : [];
+                const suggestionsHtml = this.renderSuggestionsHtml(index, suggestions);
 
                 const card = $(`
                     <div class="khm-variant-card" style="border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin-bottom: 15px; background: #fff;">
@@ -308,7 +325,7 @@
                                     ${variant.phase_tag}
                                 </span>
                                 <span class="khm-compliance-badge" style="display: inline-block; padding: 4px 8px; border-radius: 3px; background-color: ${complianceColor}; color: #fff; font-size: 11px;" title="${variant.compliance_notes}">
-                                    ${variant.compliance_notes.indexOf('FAIL') !== -1 ? 'FAIL' : (variant.compliance_notes.indexOf('WARN') !== -1 ? 'WARN' : 'OK')}
+                                    ${complianceStatus}
                                 </span>
                             </div>
                             <label style="margin: 0;">
@@ -318,6 +335,10 @@
                         </div>
                         <div style="margin-bottom: 10px; padding: 10px; background: #f9f9f9; border-left: 3px solid ${phaseColor}; font-size: 14px; line-height: 1.6;">
                             ${this.escapeHtml(variant.text)}
+                        </div>
+                        <div style="margin: 10px 0; padding: 10px; background: #fcfcfc; border: 1px solid #eee; border-radius: 4px;">
+                            <p style="margin: 0 0 8px 0;"><strong>Reason:</strong> ${this.escapeHtml(rationale)}</p>
+                            ${suggestionsHtml}
                         </div>
                         <details style="margin-top: 10px;">
                             <summary style="cursor: pointer; color: #0073aa; font-weight: 600;">View Details</summary>
@@ -332,6 +353,52 @@
                 `);
 
                 $grid.append(card);
+            });
+        },
+
+        renderSuggestionsHtml: function(index, suggestions) {
+            if (!suggestions.length) {
+                return '<p style=\"margin:0;\"><em>No suggested edits.</em></p>';
+            }
+
+            const rows = suggestions.map((suggestion) => {
+                const original = this.escapeHtml(suggestion.original_phrase || '');
+                const replacement = this.escapeHtml(suggestion.suggested_phrase || '');
+                const reason = this.escapeHtml(suggestion.reason || '');
+                return `
+                    <li style=\"margin-bottom:6px;\">
+                        <code>${original}</code> &rarr; <code>${replacement}</code>
+                        <span style=\"color:#555;\">(${reason})</span>
+                        <button type=\"button\" class=\"button button-small khm-apply-single-fix\" data-index=\"${index}\" data-original=\"${this.escapeAttr(suggestion.original_phrase || '')}\" data-suggested=\"${this.escapeAttr(suggestion.suggested_phrase || '')}\">Apply Fix</button>
+                    </li>
+                `;
+            }).join('');
+
+            return `
+                <div>
+                    <p style=\"margin:0 0 6px 0;\"><strong>Suggested fixes:</strong></p>
+                    <ul style=\"margin:0 0 10px 18px;\">${rows}</ul>
+                    <button type=\"button\" class=\"button button-secondary khm-apply-all-fixes\" data-index=\"${index}\">Apply All Suggested Fixes</button>
+                </div>
+            `;
+        },
+
+        applySingleSuggestion: function(index, originalPhrase, suggestedPhrase) {
+            if (!this.generatedVariants[index] || !originalPhrase || !suggestedPhrase) {
+                return;
+            }
+            const pattern = new RegExp(originalPhrase.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'), 'ig');
+            this.generatedVariants[index].text = String(this.generatedVariants[index].text || '').replace(pattern, suggestedPhrase);
+            this.renderVariants();
+        },
+
+        applyAllSuggestions: function(index) {
+            const variant = this.generatedVariants[index];
+            if (!variant || !Array.isArray(variant.suggested_edits)) {
+                return;
+            }
+            variant.suggested_edits.forEach((suggestion) => {
+                this.applySingleSuggestion(index, suggestion.original_phrase || '', suggestion.suggested_phrase || '');
             });
         },
 
@@ -360,9 +427,10 @@
             return colors[phase] || '#0073aa';
         },
 
-        getComplianceColor: function(notes) {
-            if (notes.indexOf('FAIL') !== -1) return '#dc3232';
-            if (notes.indexOf('WARN') !== -1) return '#f0a000';
+        getComplianceColor: function(statusOrNotes) {
+            const value = String(statusOrNotes || '').toUpperCase();
+            if (value.indexOf('FAIL') !== -1) return '#dc3232';
+            if (value.indexOf('WARN') !== -1) return '#f0a000';
             return '#46b450';
         },
 
@@ -370,6 +438,10 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        },
+
+        escapeAttr: function(text) {
+            return String(text).replace(/\"/g, '&quot;');
         },
     };
 
@@ -489,6 +561,7 @@
     // Edit Variant Modal
     const EditVariantModal = {
         currentScheduleId: null,
+        lastSuggestions: [],
 
         open: function(scheduleId, currentText) {
             this.currentScheduleId = scheduleId;
@@ -517,9 +590,12 @@
 
             $('#khm-save-variant-btn').on('click', () => this.handleSave());
             $('#khm-cancel-edit-btn').on('click', () => ModalManager.close('khm-edit-variant-modal'));
+            $(document).off('click.khmApplyAllSuggested').on('click.khmApplyAllSuggested', '#khm-apply-all-suggested-btn', () => {
+                this.handleSave({ applyAllSuggestedFixes: true, source: 'suggested_edit', ruleIds: this.lastSuggestions.map(s => s.rule_id || '').filter(Boolean) });
+            });
         },
 
-        handleSave: function() {
+        handleSave: function(options = {}) {
             const updatedText = $('#khm-edit-variant-text').val();
             const $button = $('#khm-save-variant-btn');
             const $spinner = $('#khm-edit-variant-modal').find('.spinner');
@@ -527,7 +603,7 @@
             $button.prop('disabled', true);
             $spinner.addClass('is-active');
 
-            SMMA_API.editVariant(this.currentScheduleId, updatedText).done((response) => {
+            SMMA_API.editVariant(this.currentScheduleId, updatedText, options).done((response) => {
                 const compliance = response.compliance || {};
                 const $result = $('#khm-compliance-result');
 
@@ -542,7 +618,14 @@
                     $button.prop('disabled', false);
                 }
             }).fail((xhr) => {
-                alert('Error updating variant: ' + (xhr.responseJSON?.message || 'Unknown error'));
+                const compliance = xhr.responseJSON?.data?.compliance || {};
+                const suggestions = Array.isArray(compliance.suggested_edits) ? compliance.suggested_edits : [];
+                this.lastSuggestions = suggestions;
+                const list = suggestions.map((s) => `<li><code>${this.escapeHtml(s.original_phrase || '')}</code> -> <code>${this.escapeHtml(s.suggested_phrase || '')}</code></li>`).join('');
+                const body = suggestions.length
+                    ? `<p><strong>Suggested fixes:</strong></p><ul>${list}</ul><button id=\"khm-apply-all-suggested-btn\" class=\"button button-secondary\">Apply All Suggested Fixes</button>`
+                    : `<p>${this.escapeHtml(xhr.responseJSON?.message || 'Unknown error')}</p>`;
+                $('#khm-compliance-result').html(`<div style=\"padding: 15px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 5px; color: #856404;\"><strong>Compliance requires edits.</strong>${body}</div>`).show();
                 $button.prop('disabled', false);
             }).always(() => {
                 $spinner.removeClass('is-active');

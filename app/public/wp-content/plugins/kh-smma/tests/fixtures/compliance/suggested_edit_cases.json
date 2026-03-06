@@ -1,0 +1,17 @@
+{
+  "single_phrase_fix": {
+    "input_text": "Our service provides guaranteed results.",
+    "rules_triggered": ["banned_phrase_guarantee"],
+    "expected_contains": "designed to help achieve results"
+  },
+  "multiple_phrase_fix": {
+    "input_text": "Guaranteed best results with instant results.",
+    "rules_triggered": ["banned_phrase_guarantee", "absolute_claim_best", "unverified_performance"],
+    "expected_suggestions_min": 3
+  },
+  "apply_all_fixes": {
+    "input_text": "Guaranteed results from the best option.",
+    "apply_all": true,
+    "expected_removed": ["guaranteed results", "best"]
+  }
+}
