@@ -75,4 +75,15 @@ class AuditLogger {
             ) ),
         ) );
     }
+
+    public function record_event( string $event_name, array $payload = array() ) {
+        $context = array(
+            'user_id'     => isset( $payload['user_id'] ) ? (int) $payload['user_id'] : get_current_user_id(),
+            'object_type' => (string) ( $payload['object_type'] ?? 'compliance_rule' ),
+            'object_id'   => isset( $payload['object_id'] ) ? (int) $payload['object_id'] : 0,
+            'details'     => $payload,
+        );
+
+        $this->log( $event_name, $context );
+    }
 }

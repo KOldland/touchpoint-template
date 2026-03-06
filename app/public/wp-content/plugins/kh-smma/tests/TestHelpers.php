@@ -129,6 +129,19 @@ if ( ! function_exists( 'current_user_can' ) ) {
     }
 }
 
+if ( ! function_exists( 'user_can' ) ) {
+    function user_can( $user_id, $capability ) {
+        return ! empty( $GLOBALS['kh_test_user_caps'][ $user_id ][ $capability ] );
+    }
+}
+
+if ( ! function_exists( 'get_user_meta' ) ) {
+    function get_user_meta( $user_id, $key, $single = false ) {
+        $value = $GLOBALS['kh_test_user_meta'][ $user_id ][ $key ] ?? null;
+        return $single ? $value : array( $value );
+    }
+}
+
 if ( ! function_exists( 'wp_verify_nonce' ) ) {
     function wp_verify_nonce( $nonce, $action ) {
         return true;

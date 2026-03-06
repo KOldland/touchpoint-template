@@ -9,6 +9,8 @@ use KH_SMMA\Admin\AdminInterface;
 use KH_SMMA\Admin\AuditLogPage;
 use KH_SMMA\Admin\CapabilitySettingsPage;
 use KH_SMMA\Admin\AssetsManager;
+use KH_SMMA\Admin\ComplianceCorpusPage;
+use KH_SMMA\Admin\SponsorClaimsPage;
 use KH_SMMA\Services\ScheduleQueueProcessor;
 use KH_SMMA\Services\TokenRepository;
 use KH_SMMA\Services\AuditLogger;
@@ -149,6 +151,8 @@ class Plugin {
         ( new AdminInterface( $this->token_repository, $this->audit_logger, $this->analytics_feedback, $this->lifecycle_simulator, $phase_engine ) )->register();
         ( new AuditLogPage( $wpdb ) )->register();
         ( new CapabilitySettingsPage() )->register();
+        ( new ComplianceCorpusPage() )->register();
+        ( new SponsorClaimsPage() )->register();
         ( new AssetsManager() )->register();
     }
 

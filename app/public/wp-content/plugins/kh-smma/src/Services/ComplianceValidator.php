@@ -1,6 +1,7 @@
 <?php
 namespace KH_SMMA\Services;
 
+use KH_SMMA\Compliance\ComplianceRulesStore;
 use WP_Error;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -18,6 +19,11 @@ class ComplianceValidator {
         'miracle cure',
         'instant results',
     );
+    private ?ComplianceRulesStore $rules_store = null;
+
+    public function __construct( ?ComplianceRulesStore $rules_store = null ) {
+        $this->rules_store = $rules_store;
+    }
 
     /**
      * Validate variant text using both rule-based and AI-powered checks.
@@ -60,8 +66,10 @@ class ComplianceValidator {
      * @return array Validation result
      */
     private function validate_rules( string $text, array $context ): array {
+        $blacklist = $this->resolve_blacklist();
+
         // Check blacklist phrases
-        foreach ( $this->blacklist as $phrase ) {
+        foreach ( $blacklist as $phrase ) {
             if ( stripos( $text, $phrase ) !== false ) {
                 return array(
                     'passed' => false,
@@ -87,6 +95,10 @@ class ComplianceValidator {
         }
 
         // Check sponsor-specific allowed claims
+        if ( ! empty( $context['sponsor_id'] ) && empty( $context['allowed_claims'] ) ) {
+            $context['allowed_claims'] = $this->resolve_sponsor_allowed_claims( (int) $context['sponsor_id'] );
+        }
+
         if ( ! empty( $context['sponsor_id'] ) && ! empty( $context['allowed_claims'] ) ) {
             $claim_check = $this->check_allowed_claims( $text, $context['allowed_claims'] );
             if ( ! $claim_check['passed'] ) {
@@ -301,5 +313,43 @@ Return JSON with: passed (boolean), message (string explaining any issues), conf
         }
 
         return $results;
+    }
+
+    private function resolve_blacklist(): array {
+        $dynamic = array();
+        $store   = $this->get_rules_store();
+        if ( $store ) {
+            $dynamic = $store->get_fail_phrases();
+        }
+
+        if ( empty( $dynamic ) ) {
+            return $this->blacklist;
+        }
+
+        return array_values( array_unique( array_merge( $dynamic, $this->blacklist ) ) );
+    }
+
+    private function resolve_sponsor_allowed_claims( int $sponsor_id ): array {
+        $store = $this->get_rules_store();
+        if ( ! $store || $sponsor_id <= 0 ) {
+            return array();
+        }
+
+        $row = $store->get_sponsor_claims( $sponsor_id );
+        $claims = $row['allowed_claims'] ?? array();
+        return is_array( $claims ) ? $claims : array();
+    }
+
+    private function get_rules_store(): ?ComplianceRulesStore {
+        if ( $this->rules_store instanceof ComplianceRulesStore ) {
+            return $this->rules_store;
+        }
+
+        if ( class_exists( '\\KH_SMMA\\Compliance\\ComplianceRulesStore' ) ) {
+            $this->rules_store = new ComplianceRulesStore();
+            return $this->rules_store;
+        }
+
+        return null;
     }
 }
