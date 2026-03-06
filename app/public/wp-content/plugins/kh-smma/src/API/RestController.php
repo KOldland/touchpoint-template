@@ -8,6 +8,7 @@ use KH_SMMA\Services\PhaseEngine;
 use KH_SMMA\Services\ScheduleQueueProcessor;
 use KH_SMMA\Services\ComplianceValidator;
 use KH_SMMA\Compliance\SuggestedEditService;
+use KH_SMMA\Admin\VariantGridComplianceRenderer;
 use WP_Error;
 use WP_REST_Request;
 
@@ -22,14 +23,16 @@ class RestController {
     private ?PhaseEngine $phase_engine;
     private ?ComplianceValidator $compliance_validator;
     private SuggestedEditService $suggested_edit_service;
+    private VariantGridComplianceRenderer $compliance_renderer;
 
-    public function __construct( FeatureFlags $flags, SmmaGenerator $generator, AuditLogger $logger, PhaseEngine $phase_engine = null, ComplianceValidator $compliance_validator = null, SuggestedEditService $suggested_edit_service = null ) {
+    public function __construct( FeatureFlags $flags, SmmaGenerator $generator, AuditLogger $logger, PhaseEngine $phase_engine = null, ComplianceValidator $compliance_validator = null, SuggestedEditService $suggested_edit_service = null, VariantGridComplianceRenderer $compliance_renderer = null ) {
         $this->flags = $flags;
         $this->generator = $generator;
         $this->logger = $logger;
         $this->phase_engine = $phase_engine;
         $this->compliance_validator = $compliance_validator ?? new ComplianceValidator();
         $this->suggested_edit_service = $suggested_edit_service ?? new SuggestedEditService();
+        $this->compliance_renderer = $compliance_renderer ?? new VariantGridComplianceRenderer();
     }
 
     public function register(): void {
@@ -88,6 +91,12 @@ class RestController {
         register_rest_route( 'kh-smma/v1', '/variant-edit', array(
             'methods' => 'POST',
             'callback' => array( $this, 'handle_variant_edit' ),
+            'permission_callback' => array( $this, 'check_permissions' ),
+        ) );
+
+        register_rest_route( 'kh-smma/v1', '/variant/request-approval', array(
+            'methods' => 'POST',
+            'callback' => array( $this, 'handle_variant_request_approval' ),
             'permission_callback' => array( $this, 'check_permissions' ),
         ) );
 
@@ -275,6 +284,14 @@ class RestController {
             $linkedin_variants[ $index ]['rationale'] = $notes ?: 'No compliance issues detected.';
             $linkedin_variants[ $index ]['rules_triggered'] = $rules_triggered;
             $linkedin_variants[ $index ]['suggested_edits'] = $suggested_edits;
+            $linkedin_variants[ $index ]['compliance_ui'] = $this->compliance_renderer->build_payload( $linkedin_variants[ $index ] );
+
+            do_action( 'kh_smma_telemetry_event', 'variant.compliance.viewed', array(
+                'trace_id'   => uniqid( 'com-', true ),
+                'variant_id' => (string) ( $variant['variant_id'] ?? '' ),
+                'status'     => $status,
+                'timestamp'  => time(),
+            ) );
         }
 
         return rest_ensure_response( array(
@@ -365,6 +382,31 @@ class RestController {
             $variant_id   = sanitize_text_field( $item['variant_id'] ?? '' );
             $geo          = sanitize_text_field( $item['geo'] ?? '' );
             $variant_text = $item['text'] ?? '';
+            $item_compliance_status = strtoupper( sanitize_text_field( $item['compliance_status'] ?? 'OK' ) );
+            $approval_record = $this->get_variant_approval_request( $variant_id );
+
+            if ( 'FAIL' === $item_compliance_status ) {
+                return new WP_Error( 'kh_smma_compliance_fail', __( 'Scheduling blocked due to compliance violation.', 'kh-smma' ), array(
+                    'status' => 409,
+                    'compliance_status' => 'FAIL',
+                ) );
+            }
+
+            if ( 'WARN' === $item_compliance_status ) {
+                $record_status = (string) ( $approval_record['approval_status'] ?? '' );
+                $item_status = (string) ( $item['approval_status'] ?? '' );
+                if ( 'approved' !== $record_status && 'approved' !== $item_status ) {
+                    return new WP_Error( 'kh_smma_approval_required', __( 'Variant requires sponsor approval before scheduling.', 'kh-smma' ), array(
+                        'status' => 409,
+                        'compliance_status' => 'WARN',
+                        'approval_status' => $record_status ?: 'pending',
+                    ) );
+                }
+            }
+
+            $item_approval_required = $approval_required || 'WARN' === $item_compliance_status;
+            $item_approval_status = $item_approval_required ? ( ( 'approved' === (string) ( $approval_record['approval_status'] ?? '' ) || 'approved' === (string) ( $item['approval_status'] ?? '' ) ) ? 'approved' : 'pending' ) : 'auto_approved';
+            $item_schedule_status = ( $item_approval_required && 'approved' !== $item_approval_status ) ? 'awaiting_approval' : 'pending';
 
             $variant_payload = array(
                 'post_id' => $post_id,
@@ -372,6 +414,7 @@ class RestController {
                 'channel' => 'linkedin',
                 'geo' => $geo,
                 'text' => $variant_text,
+                'compliance_status' => $item_compliance_status,
                 'meta' => array(
                     'source' => 'smma_rest',
                     'generated_by' => 'smma-ai-v1',
@@ -390,24 +433,20 @@ class RestController {
                 return $schedule_id;
             }
 
-            // Determine initial approval and schedule status
-            $approval_status = $approval_required ? 'pending' : 'auto_approved';
-            $schedule_status = $approval_required ? 'awaiting_approval' : 'pending';
-
             update_post_meta( $schedule_id, '_kh_smma_payload', $variant_payload );
             update_post_meta( $schedule_id, '_kh_smma_scheduled_at', $scheduled_at_utc );
             update_post_meta( $schedule_id, '_kh_smma_original_timezone', $original_timezone );
-            update_post_meta( $schedule_id, '_kh_smma_schedule_status', $schedule_status );
+            update_post_meta( $schedule_id, '_kh_smma_schedule_status', $item_schedule_status );
             update_post_meta( $schedule_id, '_kh_smma_delivery_mode', 'manual_export' );
             update_post_meta( $schedule_id, '_kh_smma_sponsor_id', isset( $sponsor_context['sponsor_id'] ) ? (int) $sponsor_context['sponsor_id'] : 0 );
             update_post_meta( $schedule_id, '_kh_smma_sponsor_mode', sanitize_text_field( $sponsor_context['policy'] ?? '' ) );
             update_post_meta( $schedule_id, '_kh_smma_sponsor_assets', $sponsor_context['sponsor_assets'] ?? array() );
             update_post_meta( $schedule_id, '_kh_smma_boost_mode', $boost ? 'linkedin' : 'none' );
             update_post_meta( $schedule_id, '_kh_smma_boost_settings', $boost_settings );
-            update_post_meta( $schedule_id, '_kh_smma_approval_status', $approval_status );
-            update_post_meta( $schedule_id, '_kh_smma_approval_required', $approval_required );
+            update_post_meta( $schedule_id, '_kh_smma_approval_status', $item_approval_status );
+            update_post_meta( $schedule_id, '_kh_smma_approval_required', $item_approval_required );
 
-            if ( ! $approval_required ) {
+            if ( ! $item_approval_required || 'approved' === $item_approval_status ) {
                 update_post_meta( $schedule_id, '_kh_smma_approved_by', 'system' );
                 update_post_meta( $schedule_id, '_kh_smma_approved_at', time() );
             }
@@ -420,9 +459,9 @@ class RestController {
 
             $created[] = array(
                 'schedule_id' => $schedule_id,
-                'schedule_status' => $schedule_status,
-                'approval_status' => $approval_status,
-                'approval_required' => $approval_required,
+                'schedule_status' => $item_schedule_status,
+                'approval_status' => $item_approval_status,
+                'approval_required' => $item_approval_required,
             );
         }
 
@@ -567,15 +606,37 @@ class RestController {
     public function handle_variant_edit( WP_REST_Request $request ) {
         $payload = $request->get_json_params();
         $schedule_id = (int) ( $payload['schedule_id'] ?? 0 );
+        $variant_id = sanitize_text_field( $payload['variant_id'] ?? '' );
         $updated_text = (string) ( $payload['updated_text'] ?? '' );
 
-        if ( ! $schedule_id || '' === $updated_text ) {
-            return new WP_Error( 'kh_smma_invalid_edit', __( 'schedule_id and updated_text are required.', 'kh-smma' ), array( 'status' => 400 ) );
+        if ( ! $schedule_id && '' === $variant_id ) {
+            return new WP_Error( 'kh_smma_invalid_edit', __( 'schedule_id or variant_id is required.', 'kh-smma' ), array( 'status' => 400 ) );
         }
 
-        $schedule_payload = get_post_meta( $schedule_id, '_kh_smma_payload', true );
-        if ( empty( $schedule_payload ) ) {
-            return new WP_Error( 'kh_smma_schedule_not_found', __( 'Schedule not found.', 'kh-smma' ), array( 'status' => 404 ) );
+        if ( '' === $updated_text ) {
+            return new WP_Error( 'kh_smma_invalid_edit', __( 'updated_text is required.', 'kh-smma' ), array( 'status' => 400 ) );
+        }
+
+        do_action( 'kh_smma_telemetry_event', 'variant.compliance.edit_requested', array(
+            'trace_id'   => uniqid( 'com-', true ),
+            'variant_id' => $variant_id,
+            'status'     => 'requested',
+            'timestamp'  => time(),
+        ) );
+
+        $schedule_payload = array();
+        if ( $schedule_id > 0 ) {
+            $schedule_payload = get_post_meta( $schedule_id, '_kh_smma_payload', true );
+            if ( empty( $schedule_payload ) ) {
+                return new WP_Error( 'kh_smma_schedule_not_found', __( 'Schedule not found.', 'kh-smma' ), array( 'status' => 404 ) );
+            }
+        } else {
+            $schedule_payload = array(
+                'variant_id' => $variant_id,
+                'text'       => (string) ( $payload['current_text'] ?? '' ),
+                'channel'    => 'linkedin',
+                'phase_tag'  => sanitize_text_field( $payload['phase_tag'] ?? 'Attention' ),
+            );
         }
 
         // Store original text for diff calculation
@@ -619,6 +680,14 @@ class RestController {
         }
 
         if ( ! $compliance_check['passed'] ) {
+            $this->logger->record_event( 'compliance.check', array(
+                'user_id'     => get_current_user_id(),
+                'object_type' => $schedule_id > 0 ? 'schedule' : 'variant',
+                'object_id'   => $schedule_id,
+                'status'      => $compliance_status,
+                'rule_id'     => $rules_triggered,
+                'timestamp'   => current_time( 'mysql' ),
+            ) );
             return new WP_Error( 'kh_smma_compliance_failed', $compliance_check['message'], array(
                 'status' => 422,
                 'compliance' => array(
@@ -626,6 +695,11 @@ class RestController {
                     'rationale'       => $compliance_check['message'] ?? ( $compliance_check['notes'] ?? '' ),
                     'rules_triggered' => $rules_triggered,
                     'suggested_edits' => $suggested_edits,
+                    'compliance_ui'   => $this->compliance_renderer->build_payload( array(
+                        'compliance_status' => $compliance_status,
+                        'rationale' => $compliance_check['message'] ?? ( $compliance_check['notes'] ?? '' ),
+                        'rules_triggered' => $rules_triggered,
+                    ) ),
                 ),
             ) );
         }
@@ -637,8 +711,10 @@ class RestController {
         $schedule_payload['edited_at'] = time();
         $schedule_payload['edited_by'] = get_current_user_id();
 
-        update_post_meta( $schedule_id, '_kh_smma_payload', $schedule_payload );
-        update_post_meta( $schedule_id, '_kh_smma_compliance_notes', $compliance_check['notes'] );
+        if ( $schedule_id > 0 ) {
+            update_post_meta( $schedule_id, '_kh_smma_payload', $schedule_payload );
+            update_post_meta( $schedule_id, '_kh_smma_compliance_notes', $compliance_check['notes'] );
+        }
 
         // Store preview changes with full metadata
         $preview_changes = array(
@@ -653,10 +729,12 @@ class RestController {
                 'suggested_edits' => $suggested_edits,
             ) ),
         );
-        update_post_meta( $schedule_id, '_kh_smma_preview_changes', $preview_changes );
+        if ( $schedule_id > 0 ) {
+            update_post_meta( $schedule_id, '_kh_smma_preview_changes', $preview_changes );
+        }
 
         $this->logger->log( 'smma_variant_edit', array(
-            'object_type' => 'schedule',
+            'object_type' => $schedule_id > 0 ? 'schedule' : 'variant',
             'object_id' => $schedule_id,
             'details' => array(
                 'compliance_passed' => $compliance_check['passed'],
@@ -665,15 +743,25 @@ class RestController {
             ),
             'user_id' => get_current_user_id(),
         ) );
+        $this->logger->record_event( 'compliance.check', array(
+            'user_id'     => get_current_user_id(),
+            'object_type' => $schedule_id > 0 ? 'schedule' : 'variant',
+            'object_id'   => $schedule_id,
+            'status'      => $compliance_status,
+            'rule_id'     => $rules_triggered,
+            'timestamp'   => current_time( 'mysql' ),
+        ) );
 
         // Enhanced telemetry with diff
-        ScheduleQueueProcessor::log_telemetry( $schedule_id, array(
-            'mode' => 'variant_edit',
-            'provider' => 'smma',
-            'editor_id' => get_current_user_id(),
-            'diff' => $unified_diff,
-            'compliance_result' => $compliance_check,
-        ) );
+        if ( $schedule_id > 0 ) {
+            ScheduleQueueProcessor::log_telemetry( $schedule_id, array(
+                'mode' => 'variant_edit',
+                'provider' => 'smma',
+                'editor_id' => get_current_user_id(),
+                'diff' => $unified_diff,
+                'compliance_result' => $compliance_check,
+            ) );
+        }
 
         if ( 'suggested_edit' === (string) ( $payload['source'] ?? '' ) ) {
             $rule_ids = is_array( $payload['rule_ids'] ?? null ) ? $payload['rule_ids'] : array();
@@ -703,7 +791,68 @@ class RestController {
                 'rationale'       => $compliance_check['message'] ?? ( $compliance_check['notes'] ?? '' ),
                 'rules_triggered' => $rules_triggered,
                 'suggested_edits' => $suggested_edits,
+                'compliance_ui'   => $this->compliance_renderer->build_payload( array(
+                    'compliance_status' => $compliance_status,
+                    'rationale' => $compliance_check['message'] ?? ( $compliance_check['notes'] ?? '' ),
+                    'rules_triggered' => $rules_triggered,
+                ) ),
             ) ),
+            'updated_text' => $updated_text,
+        ) );
+    }
+
+    public function handle_variant_request_approval( WP_REST_Request $request ) {
+        $payload = $request->get_json_params();
+        $variant_id = sanitize_text_field( $payload['variant_id'] ?? '' );
+        $status = strtoupper( sanitize_text_field( $payload['compliance_status'] ?? 'WARN' ) );
+        $reason = sanitize_textarea_field( $payload['rationale'] ?? '' );
+
+        if ( '' === $variant_id ) {
+            return new WP_Error( 'kh_smma_invalid_variant', __( 'variant_id is required.', 'kh-smma' ), array( 'status' => 400 ) );
+        }
+
+        if ( 'WARN' !== $status ) {
+            return new WP_Error( 'kh_smma_invalid_status', __( 'Only WARN variants can request approval.', 'kh-smma' ), array( 'status' => 400 ) );
+        }
+
+        $record = array(
+            'variant_id'        => $variant_id,
+            'approval_required' => true,
+            'approval_status'   => 'pending',
+            'requested_by'      => get_current_user_id(),
+            'requested_at'      => time(),
+            'rationale'         => $reason,
+        );
+        $this->set_variant_approval_request( $variant_id, $record );
+
+        do_action( 'kh_smma_telemetry_event', 'sponsor.approval.requested', array(
+            'trace_id'   => uniqid( 'com-', true ),
+            'variant_id' => $variant_id,
+            'status'     => 'pending',
+            'timestamp'  => time(),
+        ) );
+        do_action( 'kh_smma_telemetry_event', 'variant.compliance.request_approval', array(
+            'trace_id'   => uniqid( 'com-', true ),
+            'variant_id' => $variant_id,
+            'status'     => 'WARN',
+            'timestamp'  => time(),
+        ) );
+
+        $this->logger->record_event( 'approval.requested', array(
+            'user_id'     => get_current_user_id(),
+            'object_type' => 'variant',
+            'object_id'   => 0,
+            'variant_id'  => $variant_id,
+            'status'      => 'pending',
+            'reason'      => $reason,
+            'timestamp'   => current_time( 'mysql' ),
+        ) );
+
+        return rest_ensure_response( array(
+            'status' => 'pending_approval',
+            'variant_id' => $variant_id,
+            'approval_required' => true,
+            'approval_status' => 'pending',
         ) );
     }
 
@@ -806,6 +955,25 @@ class RestController {
         );
 
         return array_values( array_unique( $rules ) );
+    }
+
+    private function get_variant_approval_request( string $variant_id ): array {
+        $all = get_option( 'kh_smma_variant_approval_requests', array() );
+        if ( ! is_array( $all ) ) {
+            return array();
+        }
+
+        $row = $all[ $variant_id ] ?? array();
+        return is_array( $row ) ? $row : array();
+    }
+
+    private function set_variant_approval_request( string $variant_id, array $record ): void {
+        $all = get_option( 'kh_smma_variant_approval_requests', array() );
+        if ( ! is_array( $all ) ) {
+            $all = array();
+        }
+        $all[ $variant_id ] = $record;
+        update_option( 'kh_smma_variant_approval_requests', $all );
     }
 
     /**

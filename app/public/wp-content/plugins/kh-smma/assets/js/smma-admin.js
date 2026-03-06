@@ -63,11 +63,28 @@
                 contentType: 'application/json',
                 data: JSON.stringify({
                     schedule_id: scheduleId,
+                    variant_id: options.variantId || '',
+                    current_text: options.currentText || '',
+                    phase_tag: options.phaseTag || 'Attention',
                     updated_text: updatedText,
                     source: options.source || 'manual',
                     rule_ids: options.ruleIds || [],
                     suggested_edits: options.suggestedEdits || [],
                     apply_all_suggested_fixes: !!options.applyAllSuggestedFixes,
+                }),
+            });
+        },
+
+        requestApproval: function(variantId, complianceStatus, rationale) {
+            return $.ajax({
+                url: `${this.baseUrl}/variant/request-approval`,
+                method: 'POST',
+                beforeSend: (xhr) => xhr.setRequestHeader('X-WP-Nonce', this.nonce),
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    variant_id: variantId,
+                    compliance_status: complianceStatus,
+                    rationale: rationale || '',
                 }),
             });
         },
@@ -270,6 +287,14 @@
                 const index = parseInt($(e.currentTarget).data('index'), 10);
                 this.applyAllSuggestions(index);
             });
+            $(document).on('click', '.khm-request-approval', (e) => {
+                const index = parseInt($(e.currentTarget).data('index'), 10);
+                this.requestApproval(index);
+            });
+            $(document).on('click', '.khm-edit-resubmit', (e) => {
+                const index = parseInt($(e.currentTarget).data('index'), 10);
+                this.editAndResubmit(index);
+            });
         },
 
         handleGenerate: function(e) {
@@ -316,6 +341,14 @@
                 const rationale = variant.rationale || variant.compliance_notes || 'No compliance rationale provided.';
                 const suggestions = Array.isArray(variant.suggested_edits) ? variant.suggested_edits : [];
                 const suggestionsHtml = this.renderSuggestionsHtml(index, suggestions);
+                const approvalStatus = variant.approval_status || '';
+                const isFail = complianceStatus === 'FAIL';
+                const isWarnPending = complianceStatus === 'WARN' && approvalStatus === 'pending';
+                const canSchedule = !isFail && !isWarnPending;
+                const actionsHtml = this.renderComplianceActions(index, complianceStatus, rationale, approvalStatus);
+                const blockedHtml = isFail
+                    ? `<p style=\"margin:8px 0 0;color:#b32d2e;\"><strong>Scheduling blocked.</strong> Compliance rule triggered. Please edit and resubmit.</p>`
+                    : (isWarnPending ? `<p style=\"margin:8px 0 0;color:#996800;\"><strong>Pending approval.</strong> Scheduling is locked until approved.</p>` : '');
 
                 const card = $(`
                     <div class="khm-variant-card" style="border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin-bottom: 15px; background: #fff;">
@@ -329,7 +362,7 @@
                                 </span>
                             </div>
                             <label style="margin: 0;">
-                                <input type="checkbox" class="khm-variant-select" data-index="${index}" checked />
+                                <input type="checkbox" class="khm-variant-select" data-index="${index}" ${canSchedule ? 'checked' : 'disabled'} />
                                 Select
                             </label>
                         </div>
@@ -339,6 +372,8 @@
                         <div style="margin: 10px 0; padding: 10px; background: #fcfcfc; border: 1px solid #eee; border-radius: 4px;">
                             <p style="margin: 0 0 8px 0;"><strong>Reason:</strong> ${this.escapeHtml(rationale)}</p>
                             ${suggestionsHtml}
+                            ${actionsHtml}
+                            ${blockedHtml}
                         </div>
                         <details style="margin-top: 10px;">
                             <summary style="cursor: pointer; color: #0073aa; font-weight: 600;">View Details</summary>
@@ -402,6 +437,72 @@
             });
         },
 
+        renderComplianceActions: function(index, status, rationale, approvalStatus) {
+            if (status === 'WARN' && approvalStatus !== 'pending') {
+                return `<div style=\"margin-top:10px;\">
+                    <button type=\"button\" class=\"button button-secondary khm-request-approval\" data-index=\"${index}\">Request Approval</button>
+                    <button type=\"button\" class=\"button khm-edit-resubmit\" data-index=\"${index}\">Edit & Resubmit</button>
+                </div>`;
+            }
+            if (status === 'FAIL') {
+                return `<div style=\"margin-top:10px;\">
+                    <button type=\"button\" class=\"button khm-edit-resubmit\" data-index=\"${index}\">Edit & Resubmit</button>
+                </div>`;
+            }
+
+            return '';
+        },
+
+        requestApproval: function(index) {
+            const variant = this.generatedVariants[index];
+            if (!variant || variant.compliance_status !== 'WARN') {
+                return;
+            }
+
+            SMMA_API.requestApproval(variant.variant_id, variant.compliance_status, variant.rationale || '').done(() => {
+                variant.approval_required = true;
+                variant.approval_status = 'pending';
+                this.renderVariants();
+            }).fail((xhr) => {
+                alert('Error requesting approval: ' + (xhr.responseJSON?.message || 'Unknown error'));
+            });
+        },
+
+        editAndResubmit: function(index) {
+            const variant = this.generatedVariants[index];
+            if (!variant) {
+                return;
+            }
+
+            const edited = window.prompt('Edit variant text and resubmit for compliance check:', variant.text || '');
+            if (edited === null) {
+                return;
+            }
+
+            SMMA_API.editVariant(0, edited, {
+                variantId: variant.variant_id,
+                currentText: variant.text || '',
+                phaseTag: variant.phase_tag || 'Attention',
+                source: 'manual',
+            }).done((response) => {
+                variant.text = response.updated_text || edited;
+                variant.compliance_status = response.compliance?.status || 'OK';
+                variant.rationale = response.compliance?.rationale || '';
+                variant.rules_triggered = response.compliance?.rules_triggered || [];
+                variant.suggested_edits = response.compliance?.suggested_edits || [];
+                variant.approval_status = variant.compliance_status === 'WARN' ? 'pending' : '';
+                this.renderVariants();
+            }).fail((xhr) => {
+                const message = xhr.responseJSON?.message || 'Compliance check failed';
+                const compliance = xhr.responseJSON?.data?.compliance || {};
+                variant.rationale = compliance.rationale || message;
+                variant.compliance_status = compliance.status || 'FAIL';
+                variant.suggested_edits = compliance.suggested_edits || [];
+                this.renderVariants();
+                alert(message);
+            });
+        },
+
         handleSchedule: function() {
             const selectedIndices = [];
             $('.khm-variant-select:checked').each(function() {
@@ -410,6 +511,15 @@
 
             if (selectedIndices.length === 0) {
                 alert('Please select at least one variant to schedule.');
+                return;
+            }
+
+            const blocked = selectedIndices.find((i) => {
+                const variant = this.generatedVariants[i] || {};
+                return variant.compliance_status === 'FAIL' || (variant.compliance_status === 'WARN' && variant.approval_status !== 'approved');
+            });
+            if (blocked !== undefined) {
+                alert('One or more selected variants are blocked (FAIL or WARN pending approval).');
                 return;
             }
 
@@ -528,6 +638,8 @@
                     scheduled_at: scheduledAt,
                     geo: geo,
                     text: variant.text,
+                    compliance_status: variant.compliance_status || 'OK',
+                    approval_status: variant.approval_status || '',
                 });
             });
 

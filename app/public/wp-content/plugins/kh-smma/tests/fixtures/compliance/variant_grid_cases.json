@@ -1,0 +1,25 @@
+{
+  "ok_variant_case": {
+    "variant_id": "var_ok_01",
+    "compliance_status": "OK",
+    "rationale": "No issues detected"
+  },
+  "warn_variant_case": {
+    "variant_id": "var_warn_01",
+    "compliance_status": "WARN",
+    "rationale": "Absolute claim detected",
+    "expected_actions": ["request_approval", "edit_resubmit"]
+  },
+  "fail_variant_case": {
+    "variant_id": "var_fail_01",
+    "compliance_status": "FAIL",
+    "rationale": "Unverified performance claim",
+    "expected_blocked": true
+  },
+  "edit_and_resubmit_case": {
+    "variant_id": "var_edit_01",
+    "original_text": "Guaranteed results with no risk",
+    "edited_text": "Designed to help teams improve outcomes over time",
+    "expected_transition": "FAIL_TO_OK"
+  }
+}
