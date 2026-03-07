@@ -52,10 +52,11 @@ Claim updates are scoped by role permissions:
 
 - administrators can update any sponsor
 - sponsor managers can update only sponsors in their `kh_smma_sponsor_ids` user meta
+- required capabilities: `manage_compliance_rules`, `manage_sponsor_claims` (or SMMA-prefixed equivalents)
 
 ## Versioning and Re-review
 
-Corpus updates increment `corpus_version` and can trigger schedule re-review flags for previously approved schedules.
+Corpus updates increment `compliance_rules_version` (mirrored as `corpus_version`) and can trigger schedule re-review flags for previously approved schedules.
 
 Schedule fields set during re-review:
 
@@ -68,15 +69,16 @@ Schedule fields set during re-review:
 
 Rule changes are written via `AuditLogger::record_event()`:
 
-- `compliance.corpus.updated`
-- `compliance.phrase.added`
-- `compliance.phrase.removed`
-- `sponsor.allowed_claims.updated`
+- `compliance.rule_added`
+- `compliance.rule_updated`
+- `compliance.rule_removed`
+- `sponsor.allowed_claims_updated`
 
 Recommended payload fields:
 
+- `trace_id`
 - `user_id`
-- `change_type`
+- `rule_id`
 - `previous_value`
 - `new_value`
 - `timestamp`

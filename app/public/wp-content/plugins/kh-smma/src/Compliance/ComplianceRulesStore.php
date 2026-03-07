@@ -34,7 +34,8 @@ class ComplianceRulesStore {
         }
 
         return array(
-            'corpus_version' => (int) ( $meta['corpus_version'] ?? 1 ),
+            'corpus_version' => (int) ( $meta['corpus_version'] ?? ( $meta['compliance_rules_version'] ?? 1 ) ),
+            'compliance_rules_version' => (int) ( $meta['compliance_rules_version'] ?? ( $meta['corpus_version'] ?? 1 ) ),
             'updated_at'     => $meta['updated_at'] ?? '',
             'updated_by'     => (int) ( $meta['updated_by'] ?? 0 ),
         );
@@ -108,13 +109,19 @@ class ComplianceRulesStore {
 
     public function increment_corpus_version( int $user_id ): array {
         $meta = $this->get_corpus_meta();
-        $meta['corpus_version'] = max( 1, (int) $meta['corpus_version'] ) + 1;
+        $next_version = max( 1, (int) $meta['compliance_rules_version'] ) + 1;
+        $meta['corpus_version'] = $next_version;
+        $meta['compliance_rules_version'] = $next_version;
         $meta['updated_at'] = current_time( 'mysql' );
         $meta['updated_by'] = $user_id;
 
         update_option( self::META_OPTION, $meta );
 
         return $meta;
+    }
+
+    public function increment_rules_version( int $user_id ): array {
+        return $this->increment_corpus_version( $user_id );
     }
 
     public function list_sponsor_claims(): array {

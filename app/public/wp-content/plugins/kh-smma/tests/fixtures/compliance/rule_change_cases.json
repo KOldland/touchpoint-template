@@ -1,0 +1,20 @@
+{
+  "rule_add_case": {
+    "event": "compliance.rule_added",
+    "rule_id": "phrase:guaranteed_results",
+    "previous_value": null,
+    "new_value": {"phrase": "guaranteed results", "severity": "FAIL"}
+  },
+  "rule_update_case": {
+    "event": "compliance.rule_updated",
+    "rule_id": "phrase:risk_free_returns",
+    "previous_value": {"severity": "WARN"},
+    "new_value": {"severity": "FAIL"}
+  },
+  "claims_update_case": {
+    "event": "sponsor.allowed_claims_updated",
+    "rule_id": "sponsor:22:allowed_claims",
+    "previous_value": {"allowed_claims": ["eco friendly"]},
+    "new_value": {"allowed_claims": ["eco friendly", "ISO certified"]}
+  }
+}

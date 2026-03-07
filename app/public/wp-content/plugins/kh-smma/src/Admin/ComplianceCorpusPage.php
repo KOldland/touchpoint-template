@@ -192,30 +192,27 @@ class ComplianceCorpusPage {
             wp_die( esc_html( $result['error'] ) );
         }
 
-        $meta = $this->store->increment_corpus_version( get_current_user_id() );
-        $rerouted = $this->safety->trigger_rereview_for_corpus_version( (int) $meta['corpus_version'], get_current_user_id() );
+        $meta = $this->store->increment_rules_version( get_current_user_id() );
+        $rerouted = $this->safety->trigger_rereview_for_rule_version( (int) $meta['compliance_rules_version'], get_current_user_id() );
+        $trace_id = uniqid( 'com-rule-', true );
 
-        $this->audit->record_event( 'compliance.phrase.added', array(
+        $event_name = empty( $result['previous'] ) ? 'compliance.rule_added' : 'compliance.rule_updated';
+        $this->audit->record_event( $event_name, array(
+            'trace_id'       => $trace_id,
             'user_id'        => get_current_user_id(),
-            'change_type'    => 'upsert',
+            'rule_id'        => (string) ( $result['phrase_id'] ?? '' ),
             'previous_value' => $result['previous'],
             'new_value'      => $result['record'],
             'timestamp'      => $meta['updated_at'],
         ) );
-        $this->audit->record_event( 'compliance.corpus.updated', array(
-            'user_id'        => get_current_user_id(),
-            'change_type'    => 'version_increment',
-            'previous_value' => $result['previous'],
-            'new_value'      => array( 'corpus_version' => $meta['corpus_version'] ),
-            'timestamp'      => $meta['updated_at'],
-            'schedules_reflagged' => $rerouted,
-        ) );
 
         do_action( 'kh_smma_telemetry_event', 'compliance.rules.updated', array(
-            'trace_id'    => uniqid( 'com-', true ),
+            'trace_id'    => $trace_id,
             'user_id'     => get_current_user_id(),
             'change_type' => 'phrase_upsert',
             'timestamp'   => $meta['updated_at'],
+            'rules_version' => (int) $meta['compliance_rules_version'],
+            'schedules_reflagged' => $rerouted,
         ) );
 
         wp_safe_redirect( admin_url( 'admin.php?page=kh-smma-compliance-corpus' ) );
@@ -234,12 +231,14 @@ class ComplianceCorpusPage {
             wp_die( esc_html( $removed['error'] ) );
         }
 
-        $meta = $this->store->increment_corpus_version( get_current_user_id() );
-        $rerouted = $this->safety->trigger_rereview_for_corpus_version( (int) $meta['corpus_version'], get_current_user_id() );
+        $meta = $this->store->increment_rules_version( get_current_user_id() );
+        $rerouted = $this->safety->trigger_rereview_for_rule_version( (int) $meta['compliance_rules_version'], get_current_user_id() );
+        $trace_id = uniqid( 'com-rule-', true );
 
-        $this->audit->record_event( 'compliance.phrase.removed', array(
+        $this->audit->record_event( 'compliance.rule_removed', array(
+            'trace_id'       => $trace_id,
             'user_id'        => get_current_user_id(),
-            'change_type'    => 'delete',
+            'rule_id'        => (string) ( $removed['phrase_id'] ?? '' ),
             'previous_value' => $removed['previous'],
             'new_value'      => null,
             'timestamp'      => $meta['updated_at'],
@@ -247,10 +246,12 @@ class ComplianceCorpusPage {
         ) );
 
         do_action( 'kh_smma_telemetry_event', 'compliance.corpus.modified', array(
-            'trace_id'    => uniqid( 'com-', true ),
+            'trace_id'    => $trace_id,
             'user_id'     => get_current_user_id(),
             'change_type' => 'phrase_delete',
             'timestamp'   => $meta['updated_at'],
+            'rules_version' => (int) $meta['compliance_rules_version'],
+            'schedules_reflagged' => $rerouted,
         ) );
 
         wp_safe_redirect( admin_url( 'admin.php?page=kh-smma-compliance-corpus' ) );

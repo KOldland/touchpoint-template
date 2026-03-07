@@ -11,7 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class ApprovalPermissionService {
     public function can_manage_banned_phrases( int $user_id = 0 ): bool {
-        return $this->has_capability( 'manage_options', $user_id ) || $this->has_capability( 'kh_smma_manage_compliance_rules', $user_id );
+        return $this->has_capability( 'manage_options', $user_id )
+            || $this->has_capability( 'kh_smma_manage_compliance_rules', $user_id )
+            || $this->has_capability( 'manage_compliance_rules', $user_id );
     }
 
     public function can_manage_sponsor_claims( int $sponsor_id, int $user_id = 0 ): bool {
@@ -19,7 +21,7 @@ class ApprovalPermissionService {
             return true;
         }
 
-        if ( ! $this->has_capability( 'kh_smma_manage_sponsor_claims', $user_id ) ) {
+        if ( ! $this->has_capability( 'kh_smma_manage_sponsor_claims', $user_id ) && ! $this->has_capability( 'manage_sponsor_claims', $user_id ) ) {
             return false;
         }
 

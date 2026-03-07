@@ -17,4 +17,8 @@ class ApprovalSafetyService {
     public function trigger_rereview_for_corpus_version( int $corpus_version, int $updated_by ): int {
         return $this->schedules->flag_schedules_for_rereview( $corpus_version, $updated_by );
     }
+
+    public function trigger_rereview_for_rule_version( int $rules_version, int $updated_by ): int {
+        return $this->schedules->flag_schedules_for_rereview( $rules_version, $updated_by );
+    }
 }

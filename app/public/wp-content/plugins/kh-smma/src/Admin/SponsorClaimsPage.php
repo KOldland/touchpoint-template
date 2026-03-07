@@ -4,6 +4,7 @@ namespace KH_SMMA\Admin;
 use KH_SMMA\Compliance\ComplianceRulesStore;
 use KH_SMMA\Services\AuditLogger;
 use KH_SMMA\Sponsor\ApprovalPermissionService;
+use KH_SMMA\Sponsor\ApprovalSafetyService;
 
 use function add_action;
 use function add_submenu_page;
@@ -28,13 +29,15 @@ class SponsorClaimsPage {
     private ComplianceRulesStore $store;
     private AuditLogger $audit;
     private ApprovalPermissionService $permissions;
+    private ApprovalSafetyService $safety;
 
-    public function __construct( ?ComplianceRulesStore $store = null, ?AuditLogger $audit = null, ?ApprovalPermissionService $permissions = null ) {
+    public function __construct( ?ComplianceRulesStore $store = null, ?AuditLogger $audit = null, ?ApprovalPermissionService $permissions = null, ?ApprovalSafetyService $safety = null ) {
         global $wpdb;
 
         $this->store       = $store ?: new ComplianceRulesStore();
         $this->audit       = $audit ?: new AuditLogger( $wpdb );
         $this->permissions = $permissions ?: new ApprovalPermissionService();
+        $this->safety      = $safety ?: new ApprovalSafetyService();
     }
 
     public function register(): void {
@@ -119,20 +122,28 @@ class SponsorClaimsPage {
         $claims = array_filter( array_map( 'sanitize_text_field', explode( "\n", $raw_claims ) ) );
 
         $result = $this->store->update_sponsor_claims( $sponsor_id, $claims, get_current_user_id() );
+        $meta = $this->store->increment_rules_version( get_current_user_id() );
+        $rerouted = $this->safety->trigger_rereview_for_rule_version( (int) $meta['compliance_rules_version'], get_current_user_id() );
+        $trace_id = uniqid( 'com-claims-', true );
 
-        $this->audit->record_event( 'sponsor.allowed_claims.updated', array(
+        $this->audit->record_event( 'sponsor.allowed_claims_updated', array(
+            'trace_id'       => $trace_id,
             'user_id'        => get_current_user_id(),
-            'change_type'    => 'update',
+            'rule_id'        => 'sponsor:' . $sponsor_id . ':allowed_claims',
             'previous_value' => $result['previous'],
             'new_value'      => $result['current'],
             'timestamp'      => $result['current']['updated_at'] ?? '',
+            'rules_version'  => (int) $meta['compliance_rules_version'],
+            'schedules_reflagged' => $rerouted,
         ) );
 
         do_action( 'kh_smma_telemetry_event', 'compliance.rules.updated', array(
-            'trace_id'    => uniqid( 'com-', true ),
+            'trace_id'    => $trace_id,
             'user_id'     => get_current_user_id(),
             'change_type' => 'sponsor_allowed_claims_update',
             'timestamp'   => $result['current']['updated_at'] ?? '',
+            'rules_version' => (int) $meta['compliance_rules_version'],
+            'schedules_reflagged' => $rerouted,
         ) );
 
         wp_safe_redirect( admin_url( 'admin.php?page=kh-smma-sponsor-claims&sponsor_id=' . $sponsor_id ) );
