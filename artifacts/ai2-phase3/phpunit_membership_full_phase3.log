@@ -4,13 +4,15 @@ PHPUnit 9.6.34 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.1.33
 Configuration: /Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/phpunit.xml
 
-EEEEEE.F......E.Stripe marketing audit log failed: Undefined constant "WP_CONTENT_DIR"
-EFFFF.FF.....F......EE......E..................  63 / 143 ( 44%)
+................Stripe marketing audit log failed: Undefined constant "WP_CONTENT_DIR"
+.Stripe product.updated queued import failed (retry scheduled): boom
+.Stripe product.updated queued import failed: boom max
+.............................................  63 / 143 ( 44%)
 KHM landing landing.view {"schedule_id":"sch_123","sponsor_id":"sp_456","utm_source":"newsletter","source":"landing"}
 .KHM landing landing.success {"session_id":"cs_test_success_001","schedule_id":"sch_123","sponsor_id":"sp_456","consent":1,"membership_status":"active"}
 .KHM landing landing.success {"session_id":"cs_test_success_002","schedule_id":"sch_123","sponsor_id":"","consent":0,"membership_status":"active"}
 ...KHM landing landing.submit {"session_id":"cs_test_df439ce7bb2256e6","schedule_id":"sch_optout_001","sponsor_id":"","consent":1,"source":"landing"}
-..KHM webhook webhook.received {"event_id":"evt_optout_001","event_type":"checkout.session.completed","latency_ms":107}
+..KHM webhook webhook.received {"event_id":"evt_optout_001","event_type":"checkout.session.completed","latency_ms":95}
 KHM webhook membership.attribution.confirmed {"user_id":123,"schedule_id":77,"reference":"cs_optout_001","consent":0}
 KHM webhook membership.signup {"user_id":123,"tier":21,"attribution_id":"","payment_type":"subscription"}
 KHM webhook landing.success {"user_id":123,"schedule_id":77,"sponsor_id":11,"utm_source":"newsletter","utm_campaign":"spring","reference":"cs_optout_001"}
@@ -167,175 +169,12 @@ KHM webhook membership.signup {"user_id":456,"tier":249,"attribution_id":"","pay
 KHM webhook landing.success {"user_id":456,"schedule_id":987,"sponsor_id":54,"utm_source":"","utm_campaign":"","reference":"cs_dlq_requeue_integration_001"}
 KHM webhook membership.email.skipped {"type":"welcome","user_id":456,"reason":"transactional_emails_disabled","reference":"cs_dlq_requeue_integration_001"}
 KHM webhook membership.email.skipped {"type":"payment","user_id":456,"reason":"transactional_emails_disabled","reference":"session:cs_dlq_requeue_integration_001"}
-KHM webhook webhook.processed {"event_id":"evt_dlq_requeue_integration_001","event_type":"checkout.session.completed","trace_id":"240ac0e0-f06e-44df-82ab-da9b46c841b1","latency_ms":0}
+KHM webhook webhook.processed {"event_id":"evt_dlq_requeue_integration_001","event_type":"checkout.session.completed","trace_id":"4f669d34-b930-4821-9565-134b1ba688d0","latency_ms":0}
 requeue: event=evt_dlq_requeue_integration_001 reconstructed=true attempts=1 reason=success
-.EEE                                               143 / 143 (100%)
+.requeue: event=evt_requeue_001 reconstructed=true attempts=1 reason=success
+..requeue: event=evt_requeue_cli_001 reconstructed=true attempts=1 reason=success
+.                                               143 / 143 (100%)
 
-Time: 00:00.512, Memory: 34.00 MB
+Time: 00:00.519, Memory: 34.00 MB
 
-There were 14 errors:
-
-1) KHM\Tests\GEO\SuggestionServiceTest::test_answer_card_validation
-Patchwork\Exceptions\DefinedTooEarly: The file that defines wp_json_encode() was included earlier than Patchwork. Please reverse this order to be able to redefine the function in question.
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:167
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:81
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/Patchwork.php:25
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/brain/monkey/src/Expectation/FunctionStub.php:151
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/GEO/SuggestionServiceTest.php:28
-
-2) KHM\Tests\GEO\SuggestionServiceTest::test_answer_card_validation_rejects_invalid
-Patchwork\Exceptions\DefinedTooEarly: The file that defines wp_json_encode() was included earlier than Patchwork. Please reverse this order to be able to redefine the function in question.
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:167
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:81
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/Patchwork.php:25
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/brain/monkey/src/Expectation/FunctionStub.php:151
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/GEO/SuggestionServiceTest.php:28
-
-3) KHM\Tests\GEO\SuggestionServiceTest::test_cache_key_generation
-Patchwork\Exceptions\DefinedTooEarly: The file that defines wp_json_encode() was included earlier than Patchwork. Please reverse this order to be able to redefine the function in question.
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:167
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:81
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/Patchwork.php:25
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/brain/monkey/src/Expectation/FunctionStub.php:151
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/GEO/SuggestionServiceTest.php:28
-
-4) KHM\Tests\GEO\SuggestionServiceTest::test_rate_limiter_allows_normal_usage
-Patchwork\Exceptions\DefinedTooEarly: The file that defines wp_json_encode() was included earlier than Patchwork. Please reverse this order to be able to redefine the function in question.
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:167
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:81
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/Patchwork.php:25
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/brain/monkey/src/Expectation/FunctionStub.php:151
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/GEO/SuggestionServiceTest.php:28
-
-5) KHM\Tests\GEO\SuggestionServiceTest::test_rate_limiter_blocks_excessive_usage
-Patchwork\Exceptions\DefinedTooEarly: The file that defines wp_json_encode() was included earlier than Patchwork. Please reverse this order to be able to redefine the function in question.
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:167
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:81
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/Patchwork.php:25
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/brain/monkey/src/Expectation/FunctionStub.php:151
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/GEO/SuggestionServiceTest.php:28
-
-6) KHM\Tests\GEO\SuggestionServiceTest::test_audit_logger_table_creation
-Patchwork\Exceptions\DefinedTooEarly: The file that defines wp_json_encode() was included earlier than Patchwork. Please reverse this order to be able to redefine the function in question.
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:167
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/src/CallRerouting.php:81
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/antecedent/patchwork/Patchwork.php:25
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/vendor/brain/monkey/src/Expectation/FunctionStub.php:151
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/GEO/SuggestionServiceTest.php:28
-
-7) KHM\Tests\Services\StripeMarketingImporterReliabilityTest::test_import_skips_when_content_unchanged
-RuntimeException: WP level not found for id 22
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/src/Services/StripeMarketingImporter.php:140
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Services/StripeMarketingImporterReliabilityTest.php:65
-
-8) KHM\Tests\Services\StripeMarketingImporterTest::test_import_product_updates_marketing_features_meta
-RuntimeException: WP level not found for id 22
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/src/Services/StripeMarketingImporter.php:140
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Services/StripeMarketingImporterTest.php:52
-
-9) KHM\Tests\CLI\StripeMarketingDeadLettersReplayCommandTest::test_replay_by_id_marks_dead_letter_resolved
-Error: Access to undeclared static property WP_CLI::$warnings
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/CLI/StripeMarketingDeadLettersReplayCommandTest.php:48
-
-10) KHM\Tests\Admin\StripePriceIdTest::test_stripe_price_id_saved_on_create
-Error: Class "WP_List_Table" not found
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/src/Admin/LevelsPage.php:1201
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Admin/StripePriceIdTest.php:24
-
-11) KHM\Tests\Admin\StripePriceIdTest::test_empty_stripe_price_id_allowed_for_free_tiers
-PHPUnit\Framework\MockObject\IncompatibleReturnValueException: Method create may not return value of type stdClass, its declared return type is "?KHM\Models\MembershipLevel"
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Admin/StripePriceIdTest.php:281
-
-12) KHM\Tests\Membership\WebhookRequeueServiceTest::test_requeue_reconstructs_temp_store_and_marks_dead_letter_resolved
-Error: Access to undeclared static property WP_CLI::$warnings
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Membership/WebhookRequeueServiceTest.php:48
-
-13) KHM\Tests\Membership\WebhookRequeueServiceTest::test_requeue_requires_human_secret_when_metadata_cannot_be_reconstructed
-Error: Access to undeclared static property WP_CLI::$warnings
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Membership/WebhookRequeueServiceTest.php:48
-
-14) KHM\Tests\Membership\WebhookRequeueServiceTest::test_cli_replays_specific_event_id
-Error: Access to undeclared static property WP_CLI::$warnings
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Membership/WebhookRequeueServiceTest.php:48
-
---
-
-There were 8 failures:
-
-1) SponsorSchemaGateTest::test_sponsor_exposed_with_approval_and_justification
-Failed asserting that false is true.
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Sponsors/SponsorSchemaGateTest.php:45
-
-2) KHM\Tests\Services\StripeMarketingWebhookImportProcessorTest::test_retries_are_scheduled_on_import_exception
-Failed asserting that two strings are identical.
---- Expected
-+++ Actual
-@@ @@
--'retry_scheduled'
-+'invalid'
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Services/StripeMarketingWebhookImportProcessorTest.php:66
-
-3) KHM\Tests\Services\StripeMarketingWebhookImportProcessorTest::test_dead_letter_is_written_after_max_attempts
-Failed asserting that two strings are identical.
---- Expected
-+++ Actual
-@@ @@
--'dead_lettered'
-+'invalid'
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Services/StripeMarketingWebhookImportProcessorTest.php:93
-
-4) KHM\Tests\Services\StripeMarketingWebhookImportProcessorTest::test_locked_result_schedules_retry
-Failed asserting that two strings are identical.
---- Expected
-+++ Actual
-@@ @@
--'retry_scheduled'
-+'invalid'
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Services/StripeMarketingWebhookImportProcessorTest.php:119
-
-5) KHM\Tests\Rest\CheckoutStripePriceTest::test_price_id_resolution_prioritizes_metadata
-KHM\Services\LevelRepository::getMeta(1, 'khm_level_meta', Array ()) was not expected to be called more than once.
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/src/Services/LevelPriceResolver.php:69
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/src/Services/LevelPriceResolver.php:39
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/src/Rest/CheckoutController.php:159
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Rest/CheckoutStripePriceTest.php:49
-
-6) KHM\Tests\Rest\CheckoutStripePriceTest::test_fallback_to_filter_when_metadata_empty
-Expectation failed for method name is "getMeta" when invoked 2 time(s).
-Method was expected to be called 2 times, actually called 0 times.
-
-7) KHM\Tests\Rest\CheckoutStripePriceTest::test_fallback_to_option_when_metadata_and_filter_empty
-Failed asserting that two strings are equal.
---- Expected
-+++ Actual
-@@ @@
--'price_from_option'
-+'price_from_filter'
-
-/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Rest/CheckoutStripePriceTest.php:150
-
-8) KHM\Tests\Rest\WebhooksCheckoutAssignTest::test_checkout_session_completed_assigns_membership
-Expectation failed for method name is "assign" when invoked 1 time(s).
-Method was expected to be called 1 times, actually called 0 times.
-
-ERRORS!
-Tests: 143, Assertions: 525, Errors: 14, Failures: 8.
+OK (143 tests, 576 assertions)
