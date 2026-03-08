@@ -1,0 +1,27 @@
+Phase 3 combined demo with images UI
+
+Phase 3 post-publish demo
+Fixture: generate_awareness_ok.json
+Step 1 generate: PASS - request_id=req_demo_phase3 variants=1
+Step 2 grid render: PASS - variant_id=var_demo_001 compliance=OK
+Step 3 inline edit: PASS - revision_id=rev_demo_001 approval_status=approved
+Step 4 schedule: PASS - schedule_id=sched_demo_001 status=queued
+
+Phase 3 pending approval demo
+Step 1 schedule modal: PASS - variant_id=var_warn_001 sponsor=sp_demo_01
+Step 2 pending schedule: PASS - schedule_id=sched_warn_001 status=pending_approval
+Step 3 admin list render: PASS - row contains reviewer context
+Step 4 approve action: PASS - endpoint=/approve notes=Approved in demo
+
+Phase 3 images UI demo
+Step 1 upload select: PASS - selected=2 primary=img_hero_001
+Step 2 layout recommend: PASS - layout=layout_grid_2x2 score=0.96
+Step 3 preview compose: PASS - preview=https://example.test/uploads/smma/previews/compose_001.jpg composed=cmp_001
+Step 4 save payload: PASS - mapping=2 reference=phase3-demo-post-1
+{"status":"ok","composed_preview":"https://example.test/uploads/smma/previews/compose_001.jpg","composed_image_id":"cmp_001"}
+
+Phase 3 price review demo
+Reference: demo-price-review
+Currency: AUD
+Items: 3
+Total cents: 15500
