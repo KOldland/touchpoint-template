@@ -1,0 +1,14 @@
+*************************** 1. row ***************************
+  event_id: evt_postmerge_requeue_001
+event_type: checkout.session.completed
+    status: processed
+  attempts: 1
+     notes: requeue success
+*************************** 1. row ***************************
+           id: 1
+     event_id: evt_postmerge_requeue_001
+       status: resolved
+     attempts: 1
+error_message: seeded for postmerge verify
+  resolved_at: 2026-03-07 23:53:40
+

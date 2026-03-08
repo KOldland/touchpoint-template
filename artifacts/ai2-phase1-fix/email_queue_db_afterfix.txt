@@ -1,0 +1,24 @@
+*************************** 1. row ***************************
+             id: 7
+idempotency_key: welcome:session_postmerge_email_dup_001
+         status: sent
+       attempts: 0
+      recipient: dev-email@wpengine.local
+     created_at: 2026-03-07 23:56:40
+*************************** 1. row ***************************
+        Table: wp_khm_email_queue
+   Non_unique: 0
+     Key_name: uniq_email_idempotency
+ Seq_in_index: 1
+  Column_name: idempotency_key
+    Collation: A
+  Cardinality: 2
+     Sub_part: 191
+       Packed: NULL
+         Null: YES
+   Index_type: BTREE
+      Comment: 
+Index_comment: 
+      Visible: YES
+   Expression: NULL
+
