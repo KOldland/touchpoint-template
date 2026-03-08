@@ -1,0 +1,19 @@
+Phase 3 price review smoke
+== happy path ==
+Phase 3 price review demo
+Reference: demo-price-review
+Currency: AUD
+Items: 3
+Total cents: 15500
+== error path ==
+Test bootstrap loaded
+PHPUnit 9.6.34 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.1.33
+Configuration: /Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/phpunit.xml
+
+.                                                                   1 / 1 (100%)
+
+Time: 00:00.023, Memory: 14.00 MB
+
+OK (1 test, 2 assertions)

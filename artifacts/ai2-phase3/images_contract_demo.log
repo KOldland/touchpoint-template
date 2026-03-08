@@ -1,0 +1,5 @@
+Phase 3 images contract smoke
+Upload fixture: PASS - image_id=img_hero_001 orientation=landscape
+Layouts fixture: PASS - layouts=2 first_layout=layout_grid_2x2
+Compose fixture: PASS - composed_image_id=cmp_001
+Optimize fixture: PASS - variants=2

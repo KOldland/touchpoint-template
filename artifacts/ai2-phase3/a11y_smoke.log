@@ -1,0 +1,14 @@
+Phase 3 accessibility / keyboard smoke
+PASS - landing polite live region in app/public/wp-content/plugins/khm-plugin/templates/landing.php
+PASS - landing error live region in app/public/wp-content/plugins/khm-plugin/templates/landing.php
+PASS - landing consent checkbox in app/public/wp-content/plugins/khm-plugin/templates/landing.php
+PASS - success modal escape handling in app/public/wp-content/plugins/khm-plugin/assets/js/landing.js
+PASS - success modal focus trap in app/public/wp-content/plugins/khm-plugin/assets/js/landing.js
+PASS - success modal dialog role in app/public/wp-content/plugins/khm-plugin/assets/js/landing.js
+PASS - success modal aria-modal in app/public/wp-content/plugins/khm-plugin/assets/js/landing.js
+PASS - membership modal consent control in app/public/wp-content/plugins/khm-plugin/assets/js/membership-modal.js
+PASS - membership modal close control in app/public/wp-content/plugins/khm-plugin/assets/js/membership-modal.js
+PASS - smma modal close label in app/public/wp-content/plugins/kh-smma/assets/js/smma-admin.js
+PASS - smma feedback live region in app/public/wp-content/plugins/kh-smma/assets/js/smma-admin.js
+PASS - keyboard/accessibility static smoke complete
+NOTE - Playwright runtime not installed locally, so this artifact records deterministic static checks instead of browser-driven axe output.

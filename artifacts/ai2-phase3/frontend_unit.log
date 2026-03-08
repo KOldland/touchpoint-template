@@ -1,0 +1,10 @@
+Phase 3 frontend deterministic unit tests
+== smma variant grid ==
+variant-grid.test.js: PASS
+== smma calendar modal ==
+calendar-modal.test.js: PASS
+== smma pending approvals ==
+pending-approvals.test.js: PASS
+== khm checkout ui helpers ==
+checkout_ui_helpers.test.js: PASS
+Playwright-backed accessibility specs are recorded separately in artifacts/ai2-phase3/a11y_smoke.log.

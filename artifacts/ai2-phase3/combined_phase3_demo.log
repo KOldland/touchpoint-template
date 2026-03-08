@@ -1,0 +1,30 @@
+Phase 3 combined demo
+== Post-publish / variant edit / schedule ==
+Phase 3 post-publish demo
+Fixture: generate_awareness_ok.json
+Step 1 generate: PASS - request_id=req_demo_phase3 variants=1
+Step 2 grid render: PASS - variant_id=var_demo_001 compliance=OK
+Step 3 inline edit: PASS - revision_id=rev_demo_001 approval_status=approved
+Step 4 schedule: PASS - schedule_id=sched_demo_001 status=queued
+== WARN schedule / admin approval ==
+Phase 3 pending approval demo
+Step 1 schedule modal: PASS - variant_id=var_warn_001 sponsor=sp_demo_01
+Step 2 pending schedule: PASS - schedule_id=sched_warn_001 status=pending_approval
+Step 3 admin list render: PASS - row contains reviewer context
+Step 4 approve action: PASS - endpoint=/approve notes=Approved in demo
+== Landing success contract ==
+Step 5 landing-success consent=true: PASS - attribution visible
+Step 6 landing-success consent=false: PASS - minimal success copy only
+== Checkout promo and redirect ==
+  Test bootstrap loaded
+  PHPUnit 9.6.34 by Sebastian Bergmann and contributors.
+  
+  Runtime:       PHP 8.1.33
+  Configuration: /Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/phpunit.xml
+  
+  .....                                                               5 / 5 (100%)
+  
+  Time: 00:00.344, Memory: 20.00 MB
+  
+  OK (5 tests, 44 assertions)
+Step 7 checkout UX: PASS - focused backend/frontend tests passed
