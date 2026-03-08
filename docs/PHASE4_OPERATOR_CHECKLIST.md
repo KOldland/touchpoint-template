@@ -6,6 +6,18 @@ Current staging target:
 
 - `http://touchpoint5stg.wpenginepowered.com`
 
+Deploy refresh verification:
+
+- `curl -i http://touchpoint5stg.wpenginepowered.com/wp-json/kh-smma/v1/version`
+- expected header: `X-KH-SMMA-Build: 8bb2fba`
+- expected JSON includes:
+  - `plugin=kh-smma`
+  - `build_sha=8bb2fba`
+  - `runtime_ok=true`
+- full post-refresh rerun pack:
+  - `./scripts/phase4_rerun_staging_checks.sh http://touchpoint5stg.wpenginepowered.com artifacts/phase4`
+- see `artifacts/phase4/staging_refresh_handoff.md` for the current staging refresh note
+
 ## 1. Refresh the release branch
 
 ```bash

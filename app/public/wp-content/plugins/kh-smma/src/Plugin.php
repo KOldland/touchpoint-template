@@ -375,6 +375,8 @@ class Plugin {
         add_action( 'init', array( $this, 'register_cron' ) );
         add_filter( 'cron_schedules', array( $this, 'register_custom_cron_interval' ) );
         add_action( 'kh_smma_process_queue', array( $this, 'handle_queue_processing' ) );
+        add_action( 'rest_api_init', array( $this, 'register_runtime_routes' ) );
+        add_filter( 'rest_post_dispatch', array( $this, 'add_runtime_headers' ), 10, 3 );
     }
 
     /**
@@ -454,6 +456,51 @@ class Plugin {
          * Allows other KH plugins (Ad Manager, Marketing Suite, Analytics) to hook into the dispatcher.
          */
         do_action( 'kh_smma_run_queue' );
+    }
+
+    /**
+     * Expose a lightweight runtime marker so Ops can confirm which SMMA build is live.
+     */
+    public function register_runtime_routes() {
+        register_rest_route( 'kh-smma/v1', '/version', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this, 'handle_version' ),
+            'permission_callback' => '__return_true',
+        ) );
+    }
+
+    /**
+     * Add release headers to REST responses for quick deploy verification.
+     *
+     * @param mixed $response
+     * @param mixed $server
+     * @param mixed $request
+     *
+     * @return mixed
+     */
+    public function add_runtime_headers( $response, $server, $request ) {
+        unset( $server, $request );
+
+        if ( is_object( $response ) && method_exists( $response, 'header' ) ) {
+            $response->header( 'X-KH-SMMA-Version', (string) KH_SMMA_VERSION );
+            $response->header( 'X-KH-SMMA-Build', (string) KH_SMMA_BUILD_SHA );
+        }
+
+        return $response;
+    }
+
+    /**
+     * REST callback for deploy verification.
+     *
+     * @return array
+     */
+    public function handle_version() {
+        return array(
+            'plugin'     => 'kh-smma',
+            'version'    => (string) KH_SMMA_VERSION,
+            'build_sha'  => (string) KH_SMMA_BUILD_SHA,
+            'runtime_ok' => true,
+        );
     }
 
     /**

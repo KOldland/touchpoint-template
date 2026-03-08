@@ -18,6 +18,10 @@ if ( ! defined( 'KH_SMMA_URL' ) ) {
     define( 'KH_SMMA_URL', plugin_dir_url( __FILE__ ) );
 }
 
+if ( ! defined( 'KH_SMMA_BUILD_SHA' ) ) {
+    define( 'KH_SMMA_BUILD_SHA', '8bb2fba' );
+}
+
 if ( ! defined( 'KH_SMMA_VERSION' ) ) {
     define( 'KH_SMMA_VERSION', '0.1.0' );
 }
