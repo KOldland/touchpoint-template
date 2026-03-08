@@ -1,0 +1,5 @@
+variant-grid.test.js: PASS
+calendar-modal.test.js: PASS
+pending-approvals.test.js: PASS
+image_upload.test.js: PASS
+checkout_ui_helpers.test.js: PASS

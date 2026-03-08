@@ -11,6 +11,7 @@ Merged PRs:
 - `#59` Schedule / Pending Approvals
 - `#60` Checkout UI & Price Review
 - `#61` Images contract
+- `#63` Images upload & layout preview UI
 - `#62` khm-plugin full-suite repair
 
 Verification branch:
@@ -23,6 +24,7 @@ Acceptance gates:
 - Checkout UI promo handling + consent-gated success UX: PASS
 - Price Review override endpoint + smoke path: PASS
 - Image upload/layout preview contract committed with fixtures: PASS
+- Image upload/layout preview UI demo-first flow: PASS
 - Frontend deterministic tests: PASS
 - Focused Phase 3 backend tests: PASS
 - Combined Phase 3 demo harness: PASS
@@ -36,6 +38,12 @@ Artifacts in this pack:
 - `combined_phase3_demo.log`
 - `price_review_demo.log`
 - `images_contract_demo.log`
+- `images_ui_demo.log`
+- `images_ui_frontend.log`
+- `images_ui_phpunit.log`
+- `frontend_unit_with_images.log`
+- `phpunit_phase3_with_images.log`
+- `combined_phase3_with_images.log`
 - `db_snapshot_phase3.sql`
 - `phpunit_membership_full_phase3.log`
 - `a11y_smoke.log`
