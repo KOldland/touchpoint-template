@@ -1,75 +1,97 @@
-# CIC Golden Check
+# CIC Golden-Check Runbook
 
-`golden-check` is the deterministic CI gate for fixture parity and fixture governance.
+## Purpose
+Operate and triage the deterministic golden-check gate that protects cross-bucket contract parity.
 
-## CI execution model
+## Owner
+- Primary: `@ci-qa-team`
+- Escalation: `@KOldland`
 
-- `golden-check` (fast gate): deterministic core fixtures, no automatic retries, merge-blocking.
-- `golden-check-deep`: full fixture coverage, retryable via `scripts/ci_retry_wrapper.php`, non-blocking severity for triage.
-- `smoke-harness-fast`: deterministic smoke signal when smoke harness script exists.
+## Prerequisites
+- `KH_SMMA_TEST_MODE=ci`
+- `KH_SMMA_GOLDEN_FIXTURE=generate_awareness_ok.json` (or targeted fixture)
+- No live LLM keys in env (`OPENAI_*`, `ANTHROPIC_*`, etc. unset/blank)
+- Dependencies installed for `kh-smma` plugin.
 
-## Local run (developer wrapper)
-
+## Commands
+Fast local parity:
 ```bash
 ./scripts/ci_local_env.sh
 php scripts/dev_golden_check.php --fixture generate_awareness_ok.json --output artifacts/dev-golden-check
 ```
+Expected output example:
+```text
+Golden check passed.
+```
 
-## CI parity run (direct engine)
-
+Direct engine check:
 ```bash
 php scripts/golden_check.php \
   --base origin/main \
   --head HEAD \
   --skip-label-check \
-  --output artifacts/golden-summary.json \
-  --diff-dir artifacts/golden-diffs \
-  --zip artifacts/golden-diff.zip
+  --fixtures generate_awareness_ok.json,compliance_ok.json \
+  --output artifacts/golden-fast/golden-summary.json \
+  --diff-dir artifacts/golden-fast/diffs \
+  --zip artifacts/golden-fast/golden-diff.zip
+```
+Expected output example on mismatch:
+```text
+Golden check failed with 1 mismatch(es).
+ - generate_awareness_ok.json (owner: @ci-qa-team)
 ```
 
-## Deep run with retry wrapper
-
+Render readable diffs:
 ```bash
-php scripts/ci_retry_wrapper.php \
-  --step golden-check-deep \
-  --attempts 2 \
-  --backoff 3 \
-  --transient-exit-codes "75,137,143,255" \
-  --command "php scripts/golden_check.php --output artifacts/golden-summary.json --diff-dir artifacts/golden-diffs --zip artifacts/golden-diff.zip"
+python3 scripts/extract_golden_diffs.py artifacts/golden-fast/golden-diff.zip --out artifacts/golden-fast/golden-diff.html
 ```
 
-## Governance
+## Artifacts
+- `artifacts/golden-fast/golden-summary.json`
+- `artifacts/golden-fast/golden-diff.zip`
+- `artifacts/golden-fast/golden-diff.html`
+- `artifacts/golden-fast/golden-telemetry.json`
 
-- If files under `app/public/wp-content/plugins/kh-smma/tests/fixtures/golden/` or `docs/contracts/` change, PRs must include label `golden-owner-approved`.
-- `scripts/label_check.php` enforces this in CI.
+Summary snippet example:
+```json
+{"result":"failure","mismatches":[{"fixture":"generate_awareness_ok.json","owner":"@ci-qa-team"}]}
+```
 
-## Diff inspection
+## Telemetry
+- `cic.golden_check.started`
+- `cic.golden_check.completed`
+- `cic.golden_check.failure.detail`
 
+Look in observability UI:
+- CIC Health dashboard panel `golden_check_failure_rate`
+- CIC Health dashboard panel `golden_check_duration_p90`
+
+## Failure modes and triage
+1. Label/gov failure (`golden-owner-approved` missing):
 ```bash
-python3 scripts/extract_golden_diffs.py artifacts/golden-diff.zip --out artifacts/golden-diff.html
+php scripts/label_check.php --event "$GITHUB_EVENT_PATH" --base origin/main --head HEAD
 ```
-
-Open `artifacts/golden-diff.html` for readable patch review.
-
-## Troubleshooting
-
-1. Run `php scripts/verify_golden_fixtures.php` first.
-2. Ensure `KH_SMMA_TEST_MODE=ci` and real LLM keys are unset.
-3. Check fixture `.meta.json` (`prompt_hash`, `prompt_version`, `checksum`).
-4. If a fixture update is expected, regenerate in temp:
-
+2. Fixture checksum/meta mismatch:
 ```bash
-php scripts/regenerate_fixture_ui.php --input recorded.json --fixture-name generate_awareness_ok.json
+php scripts/verify_golden_fixtures.php
 ```
-
-The tool writes preview output under `tmp/golden-preview/*` and does not auto-commit.
-
-5. Build a correlated triage report from golden + flaky outputs:
-
+3. Runtime mismatch reproduction:
+```bash
+./scripts/ci_local_env.sh
+php scripts/dev_golden_check.php --fixture <fixture>.json --output artifacts/dev-golden-check
+```
+4. Correlate with flaky signals:
 ```bash
 php scripts/ci_triage_report.php \
-  --golden-summary artifacts/golden-summary.json \
+  --golden-summary artifacts/golden-fast/golden-summary.json \
   --flaky-report artifacts/flaky-report.json \
   --output artifacts/ci-triage-report.json \
   --markdown artifacts/ci-triage-report.md
 ```
+
+## PM sign-off checklist
+- [ ] `golden-check` fast gate green or mismatch triaged with owner.
+- [ ] If fixtures/contracts changed, `golden-owner-approved` label present.
+- [ ] `golden-diff.html` attached for failed runs.
+- [ ] `ci-triage-report.json` attached when mismatch persists.
+- [ ] Telemetry events observed in CIC Health dashboard.

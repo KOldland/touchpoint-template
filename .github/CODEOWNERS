@@ -1,0 +1,7 @@
+# CIC observability ownership
+/observability/** @KOldland
+/docs/observability/** @KOldland
+/scripts/observability/** @KOldland
+/scripts/ci_triage_report.php @KOldland
+/scripts/extract_golden_diffs.py @KOldland
+/.github/workflows/observability-selftest.yml @KOldland

@@ -6,14 +6,18 @@ import html
 import json
 import os
 import zipfile
+from pathlib import Path
 from typing import Dict, List, Tuple
+
+FIXTURE_DIR = Path("app/public/wp-content/plugins/kh-smma/tests/fixtures/golden")
+RUNBOOK_PATH = "docs/observability/alerting_runbook.md"
 
 
 def extract(zip_path: str) -> Tuple[dict, List[Tuple[str, str]]]:
     if not os.path.isfile(zip_path):
         raise FileNotFoundError(f"zip not found: {zip_path}")
 
-    summary = {}
+    summary: dict = {}
     patches: List[Tuple[str, str]] = []
 
     with zipfile.ZipFile(zip_path, "r") as zf:
@@ -30,12 +34,29 @@ def extract(zip_path: str) -> Tuple[dict, List[Tuple[str, str]]]:
     return summary, patches
 
 
+def fixture_meta(fixture: str) -> dict:
+    if not fixture.endswith(".json"):
+        return {}
+    meta_path = FIXTURE_DIR / fixture.replace(".json", ".meta.json")
+    if not meta_path.is_file():
+        return {}
+    try:
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
 def owner_contacts(mismatches: List[dict]) -> Dict[str, List[str]]:
     contacts: Dict[str, List[str]] = {}
     for mismatch in mismatches:
         fixture = str(mismatch.get("fixture") or mismatch.get("stage") or "unknown")
         owner = str(mismatch.get("owner", "@unknown"))
-        contacts.setdefault(owner, []).append(fixture)
+        meta = fixture_meta(fixture)
+        author = str(meta.get("author") or "")
+        key = owner
+        if author and author != owner:
+            key = f"{owner} (meta author: {author})"
+        contacts.setdefault(key, []).append(fixture)
     for owner, fixtures in list(contacts.items()):
         contacts[owner] = sorted(set(fixtures))
     return contacts
@@ -46,14 +67,37 @@ def repro_steps(mismatch: dict) -> str:
     if fixture.endswith(".json"):
         return (
             "./scripts/ci_local_env.sh\n"
-            f"php scripts/dev_golden_check.php --fixture {fixture} --output artifacts/dev-golden-check"
+            f"php scripts/dev_golden_check.php --fixture {fixture} --output artifacts/dev-golden-check\n"
+            f"php scripts/ci_triage_report.php --golden-summary artifacts/golden-fast/golden-summary.json --output artifacts/ci-triage-report.json"
         )
     stage = str(mismatch.get("stage") or "runtime")
     return (
         "./scripts/ci_local_env.sh\n"
-        f"# reproduce stage-level issue\n"
-        f"php scripts/dev_golden_check.php --output artifacts/dev-golden-check  # focus on {stage}"
+        f"# reproduce stage-level issue for {stage}\n"
+        "php scripts/dev_golden_check.php --output artifacts/dev-golden-check\n"
+        "php scripts/ci_triage_report.php --golden-summary artifacts/golden-fast/golden-summary.json --output artifacts/ci-triage-report.json"
     )
+
+
+def mismatch_rows(mismatches: List[dict]) -> List[str]:
+    rows = []
+    for mismatch in mismatches:
+        fixture_stage = str(mismatch.get("fixture") or mismatch.get("stage") or "unknown")
+        owner = str(mismatch.get("owner", "@unknown"))
+        reason = str(mismatch.get("reason", "mismatch"))
+        diff_file = str(mismatch.get("diff_file", ""))
+        meta = fixture_meta(fixture_stage)
+        prompt_hash = str(meta.get("prompt_hash") or mismatch.get("prompt_hash") or "n/a")
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(fixture_stage)}</td>"
+            f"<td>{html.escape(owner)}</td>"
+            f"<td>{html.escape(reason)}</td>"
+            f"<td>{html.escape(prompt_hash)}</td>"
+            f"<td>{html.escape(diff_file)}</td>"
+            "</tr>"
+        )
+    return rows
 
 
 def to_html(summary: dict, patches: List[Tuple[str, str]]) -> str:
@@ -66,20 +110,7 @@ def to_html(summary: dict, patches: List[Tuple[str, str]]) -> str:
     mismatches_raw = summary.get("mismatches", []) if isinstance(summary, dict) else []
     mismatches: List[dict] = [m for m in mismatches_raw if isinstance(m, dict)]
 
-    rows = []
-    for mismatch in mismatches:
-        fixture_stage = str(mismatch.get("fixture") or mismatch.get("stage") or "unknown")
-        owner = str(mismatch.get("owner", "@unknown"))
-        reason = str(mismatch.get("reason", "mismatch"))
-        diff_file = str(mismatch.get("diff_file", ""))
-        rows.append(
-            "<tr>"
-            f"<td>{html.escape(fixture_stage)}</td>"
-            f"<td>{html.escape(owner)}</td>"
-            f"<td>{html.escape(reason)}</td>"
-            f"<td>{html.escape(diff_file)}</td>"
-            "</tr>"
-        )
+    rows = mismatch_rows(mismatches)
 
     contacts = owner_contacts(mismatches)
     owner_blocks = []
@@ -125,13 +156,14 @@ def to_html(summary: dict, patches: List[Tuple[str, str]]) -> str:
     <div><strong>Base:</strong> {base}</div>
     <div><strong>Head:</strong> {head}</div>
     <div><strong>Duration (ms):</strong> {duration}</div>
+    <div><strong>Runbook:</strong> {html.escape(RUNBOOK_PATH)}</div>
   </div>
 
   <h2>Mismatches</h2>
   <table>
-    <thead><tr><th>Fixture/Stage</th><th>Owner</th><th>Reason</th><th>Diff File</th></tr></thead>
+    <thead><tr><th>Fixture/Stage</th><th>Owner</th><th>Reason</th><th>Prompt Hash</th><th>Diff File</th></tr></thead>
     <tbody>
-      {''.join(rows) if rows else '<tr><td colspan="4">No mismatches listed.</td></tr>'}
+      {''.join(rows) if rows else '<tr><td colspan="5">No mismatches listed.</td></tr>'}
     </tbody>
   </table>
 

@@ -1,0 +1,408 @@
+name: CIC Release Orchestration
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag identifier (e.g. release-2026-03-10)'
+        required: true
+        type: string
+      previous_tag:
+        description: 'Previous stable tag for rollback (required for non-dry-run rollback)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Run orchestration in dry-run mode'
+        required: true
+        default: true
+        type: boolean
+      canary_percent:
+        description: 'Canary rollout percent'
+        required: true
+        default: '5'
+        type: string
+      canary_observation_minutes:
+        description: 'Canary observation window (minutes; recommended 60-120)'
+        required: true
+        default: '60'
+        type: string
+      run_mem_e2e:
+        description: 'Run membership E2E command if configured'
+        required: true
+        default: false
+        type: boolean
+      run_a11y:
+        description: 'Run a11y command if configured'
+        required: true
+        default: false
+        type: boolean
+      simulate_canary_failure:
+        description: 'Force synthetic gate failure in canary stage'
+        required: true
+        default: false
+        type: boolean
+  push:
+    tags:
+      - 'release/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cic-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  KH_SMMA_TEST_MODE: ci
+  KH_SMMA_GOLDEN_FIXTURE: generate_awareness_ok.json
+  CI: 'true'
+  OPENAI_API_KEY: ''
+  OPENAI_KEY: ''
+  ANTHROPIC_API_KEY: ''
+  ANTHROPIC_KEY: ''
+  DUAL_GPT_API_KEY: ''
+  LLM_API_KEY: ''
+
+jobs:
+  release-staging:
+    name: release-staging
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      previous_tag: ${{ steps.meta.outputs.previous_tag }}
+      dry_run: ${{ steps.meta.outputs.dry_run }}
+      canary_percent: ${{ steps.meta.outputs.canary_percent }}
+      canary_minutes: ${{ steps.meta.outputs.canary_minutes }}
+      run_mem_e2e: ${{ steps.meta.outputs.run_mem_e2e }}
+      run_a11y: ${{ steps.meta.outputs.run_a11y }}
+      simulate_canary_failure: ${{ steps.meta.outputs.simulate_canary_failure }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Resolve release metadata
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RELEASE_TAG="${{ inputs.release_tag }}"
+            PREV_TAG="${{ inputs.previous_tag }}"
+            DRY_RUN="${{ inputs.dry_run }}"
+            CANARY_PCT="${{ inputs.canary_percent }}"
+            CANARY_MIN="${{ inputs.canary_observation_minutes }}"
+            RUN_MEM_E2E="${{ inputs.run_mem_e2e }}"
+            RUN_A11Y="${{ inputs.run_a11y }}"
+            SIM_FAIL="${{ inputs.simulate_canary_failure }}"
+          else
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            PREV_TAG=""
+            DRY_RUN="false"
+            CANARY_PCT="5"
+            CANARY_MIN="60"
+            RUN_MEM_E2E="false"
+            RUN_A11Y="false"
+            SIM_FAIL="false"
+          fi
+
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "release_tag is empty" >&2
+            exit 1
+          fi
+
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+          echo "canary_percent=$CANARY_PCT" >> "$GITHUB_OUTPUT"
+          echo "canary_minutes=$CANARY_MIN" >> "$GITHUB_OUTPUT"
+          echo "run_mem_e2e=$RUN_MEM_E2E" >> "$GITHUB_OUTPUT"
+          echo "run_a11y=$RUN_A11Y" >> "$GITHUB_OUTPUT"
+          echo "simulate_canary_failure=$SIM_FAIL" >> "$GITHUB_OUTPUT"
+
+      - name: Install SMMA dependencies
+        run: cd app/public/wp-content/plugins/kh-smma && composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Emit release started event
+        run: |
+          mkdir -p artifacts/release/staging
+          php -r '
+            $event = [[
+              "event" => "cic.release.started",
+              "run_id" => getenv("GITHUB_RUN_ID") ?: "local",
+              "tag" => "${{ steps.meta.outputs.release_tag }}",
+              "commit" => getenv("GITHUB_SHA") ?: "",
+              "stage" => "staging",
+              "timestamp" => gmdate("c")
+            ]];
+            file_put_contents("artifacts/release/staging/release-events.json", json_encode($event, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) . PHP_EOL);
+          '
+
+      - name: CI secret preflight
+        run: |
+          php scripts/secret_preflight.php --profile cic-ci --output artifacts/release/staging/secret-preflight-ci.json
+
+      - name: Deploy staging
+        run: |
+          DRY_ARG=""
+          if [ "${{ steps.meta.outputs.dry_run }}" = "true" ]; then DRY_ARG="--dry-run"; fi
+          bash scripts/release_deploy.sh --env=staging --tag="${{ steps.meta.outputs.release_tag }}" --artifact-dir=artifacts/release/staging $DRY_ARG
+
+      - name: Run staging release gate
+        run: |
+          php scripts/release_gate_check.php \
+            --env=staging \
+            --artifact-dir=artifacts/release/staging/gate
+
+      - name: Optional MEM E2E
+        if: steps.meta.outputs.run_mem_e2e == 'true'
+        run: |
+          if [ -z "${RELEASE_MEM_E2E_CMD:-}" ]; then
+            echo "RELEASE_MEM_E2E_CMD not configured" >&2
+            exit 1
+          fi
+          bash -lc "$RELEASE_MEM_E2E_CMD"
+
+      - name: Optional a11y
+        if: steps.meta.outputs.run_a11y == 'true'
+        run: |
+          if [ -z "${RELEASE_A11Y_CMD:-}" ]; then
+            echo "RELEASE_A11Y_CMD not configured" >&2
+            exit 1
+          fi
+          bash -lc "$RELEASE_A11Y_CMD"
+
+      - name: Upload staging artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-staging-artifacts
+          path: artifacts/release/staging
+          if-no-files-found: warn
+
+  release-canary:
+    name: release-canary
+    runs-on: ubuntu-latest
+    environment: canary
+    needs: [release-staging]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Promote to canary flag
+        run: |
+          DRY_ARG=""
+          if [ "${{ needs.release-staging.outputs.dry_run }}" = "true" ]; then DRY_ARG="--dry-run"; fi
+          php scripts/feature_flag_toggle.php \
+            --flag=khm_membership_transactional_emails_enabled \
+            --pct="${{ needs.release-staging.outputs.canary_percent }}" \
+            --enabled=1 \
+            --actor=release-bot \
+            --env=canary \
+            --artifact-dir=artifacts/release/canary \
+            $DRY_ARG
+
+      - name: Canary gate check
+        run: |
+          SIM_ARG=""
+          if [ "${{ needs.release-staging.outputs.simulate_canary_failure }}" = "true" ]; then SIM_ARG="--simulate-failure=1"; fi
+          php scripts/release_gate_check.php \
+            --env=canary \
+            --artifact-dir=artifacts/release/canary/gate \
+            $SIM_ARG
+
+      - name: Canary observation window
+        run: |
+          if [ "${{ needs.release-staging.outputs.dry_run }}" = "true" ]; then
+            echo "Dry-run mode: skipping sleep"
+            exit 0
+          fi
+          MIN="${{ needs.release-staging.outputs.canary_minutes }}"
+          if ! [[ "$MIN" =~ ^[0-9]+$ ]]; then
+            echo "Invalid canary minutes: $MIN" >&2
+            exit 1
+          fi
+          echo "Canary monitoring window: ${MIN} minute(s)"
+          sleep $((MIN * 60))
+
+      - name: Upload canary artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-canary-artifacts
+          path: artifacts/release/canary
+          if-no-files-found: warn
+
+  release-prod:
+    name: release-prod
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [release-canary]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Download staging artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-staging-artifacts
+          path: artifacts/release/staging
+
+      - name: Download canary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-canary-artifacts
+          path: artifacts/release/canary
+
+      - name: Deploy production
+        run: |
+          DRY_ARG=""
+          if [ "${{ needs.release-staging.outputs.dry_run }}" = "true" ]; then DRY_ARG="--dry-run"; fi
+          bash scripts/release_deploy.sh --env=prod --tag="${{ needs.release-staging.outputs.release_tag }}" --artifact-dir=artifacts/release/prod $DRY_ARG
+
+      - name: Full enable flag
+        run: |
+          DRY_ARG=""
+          if [ "${{ needs.release-staging.outputs.dry_run }}" = "true" ]; then DRY_ARG="--dry-run"; fi
+          php scripts/feature_flag_toggle.php \
+            --flag=khm_membership_transactional_emails_enabled \
+            --pct=100 \
+            --enabled=1 \
+            --actor=release-bot \
+            --env=prod \
+            --artifact-dir=artifacts/release/prod \
+            $DRY_ARG
+
+      - name: Build release summary
+        run: |
+          php -r '
+            $stagingGate = @json_decode((string)@file_get_contents("artifacts/release/staging/gate/gate-summary.json"), true) ?: [];
+            $canaryGate = @json_decode((string)@file_get_contents("artifacts/release/canary/gate/gate-summary.json"), true) ?: [];
+            $summary = [
+              "tag" => "${{ needs.release-staging.outputs.release_tag }}",
+              "commit" => getenv("GITHUB_SHA") ?: "",
+              "result" => "success",
+              "tests" => [
+                "staging_gate" => $stagingGate["result"] ?? "unknown",
+                "canary_gate" => $canaryGate["result"] ?? "unknown"
+              ],
+              "golden_summary" => [
+                "staging" => $stagingGate["golden_summary"] ?? null,
+                "canary" => $canaryGate["golden_summary"] ?? null
+              ],
+              "smoke_telemetry" => [
+                "staging" => $stagingGate["smoke_telemetry"] ?? null,
+                "canary" => $canaryGate["smoke_telemetry"] ?? null
+              ],
+              "canary_results" => $canaryGate,
+              "timestamp" => gmdate("c")
+            ];
+            if (!is_dir("artifacts/release")) { mkdir("artifacts/release", 0775, true); }
+            file_put_contents("artifacts/release/release-summary.json", json_encode($summary, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) . PHP_EOL);
+            $events = [[
+              "event" => "cic.release.completed",
+              "run_id" => getenv("GITHUB_RUN_ID") ?: "local",
+              "tag" => "${{ needs.release-staging.outputs.release_tag }}",
+              "result" => "success",
+              "timestamp" => gmdate("c")
+            ]];
+            file_put_contents("artifacts/release/release-events.json", json_encode($events, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) . PHP_EOL);
+          '
+
+      - name: Upload production/release artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-prod-artifacts
+          path: artifacts/release
+          if-no-files-found: warn
+
+  release-rollback:
+    name: release-rollback
+    runs-on: ubuntu-latest
+    needs: [release-staging, release-canary, release-prod]
+    if: always() && (needs.release-canary.result == 'failure' || needs.release-prod.result == 'failure')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Execute rollback
+        run: |
+          PREV="${{ needs.release-staging.outputs.previous_tag }}"
+          if [ -z "$PREV" ]; then
+            PREV="${GITHUB_REF_NAME:-unknown-previous-tag}"
+          fi
+          DRY_ARG=""
+          if [ "${{ needs.release-staging.outputs.dry_run }}" = "true" ]; then DRY_ARG="--dry-run"; fi
+
+          bash scripts/release_rollback.sh \
+            --tag="$PREV" \
+            --reason="canary_or_prod_failure" \
+            --actor=release-bot \
+            --artifact-dir=artifacts/release/rollback \
+            $DRY_ARG
+
+      - name: Build failed release summary
+        run: |
+          php -r '
+            $stagingGate = @json_decode((string)@file_get_contents("artifacts/release/staging/gate/gate-summary.json"), true) ?: [];
+            $canaryGate = @json_decode((string)@file_get_contents("artifacts/release/canary/gate/gate-summary.json"), true) ?: [];
+            $rollback = @json_decode((string)@file_get_contents("artifacts/release/rollback/rollback-summary.json"), true) ?: [];
+            $summary = [
+              "tag" => "${{ needs.release-staging.outputs.release_tag }}",
+              "commit" => getenv("GITHUB_SHA") ?: "",
+              "result" => "failure",
+              "tests" => [
+                "staging_gate" => $stagingGate["result"] ?? "unknown",
+                "canary_gate" => $canaryGate["result"] ?? "unknown"
+              ],
+              "golden_summary" => ["staging" => $stagingGate["golden_summary"] ?? null],
+              "smoke_telemetry" => ["staging" => $stagingGate["smoke_telemetry"] ?? null],
+              "canary_results" => $canaryGate,
+              "rollback" => $rollback,
+              "timestamp" => gmdate("c")
+            ];
+            if (!is_dir("artifacts/release")) { mkdir("artifacts/release", 0775, true); }
+            file_put_contents("artifacts/release/release-summary.json", json_encode($summary, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) . PHP_EOL);
+            $events = [[
+              "event" => "cic.release.failed",
+              "run_id" => getenv("GITHUB_RUN_ID") ?: "local",
+              "tag" => "${{ needs.release-staging.outputs.release_tag }}",
+              "result" => "failure",
+              "timestamp" => gmdate("c")
+            ]];
+            file_put_contents("artifacts/release/release-events.json", json_encode($events, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) . PHP_EOL);
+          '
+
+      - name: Upload rollback artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-rollback-artifacts
+          path: artifacts/release
+          if-no-files-found: warn

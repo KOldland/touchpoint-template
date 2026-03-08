@@ -1,120 +1,97 @@
 # CIC Reliability Runbook
 
-This runbook covers CIC-06 reliability/monitoring for `golden-check`, `smoke-harness`, and `flaky-detect`.
+## Purpose
+Operate reliability tooling for CIC checks: retry wrapper, flaky detection, weekly health, and correlated triage.
 
-## Signals and Telemetry
+## Owner
+- Primary: `@ci-qa-team`
+- Escalation: `@observability-owner`
 
-Key events emitted by CIC scripts:
+## Prerequisites
+- PHP 8.1+
+- `KH_SMMA_TEST_MODE=ci`
+- CI artifacts available from latest run for golden/flaky reports
 
-- `cic.golden_check.started`
-- `cic.golden_check.completed`
-- `cic.golden_check.failure.detail`
-- `cic.retrial`
-- `cic.flaky_tests.detected`
-- `cic.weekly_health.started`
-- `cic.weekly_health.alert`
-- `cic.weekly_health.completed`
-- `cic.secret_scan.passed`
-- `cic.secret_scan.failed`
-
-Primary CI artifacts:
-
-- `golden-fast-artifacts` / `golden-deep-artifacts`
-- `smoke-fast-artifacts`
-- `flaky-report`
-- `weekly-health-artifacts`
-
-## Alert Thresholds (Ops Baseline)
-
-- `P0`: `golden_check_failure_rate > 10%` in 1 hour
-- `P1`: `golden_check_duration_p90 > 10m`
-- `P1`: `smoke_harness_failure_rate > 5%`
-- `P2`: flaky-detect non-success count `> 5` in 24h
-
-If your observability platform uses different naming, map these thresholds to equivalent metrics.
-
-## Triage: Golden Check Failure
-
-1. Open workflow run and download `golden-fast-artifacts` (and `golden-deep-artifacts` if present).
-2. Open `golden-diff.html`; identify fixture owner from mismatch table.
-3. Reproduce locally:
-
-```bash
-./scripts/ci_local_env.sh
-php scripts/dev_golden_check.php --fixture <fixture>.json --output artifacts/dev-golden-check
-```
-
-4. If mismatch is expected behavior change:
-- Update contract docs first (`docs/contracts/*`)
-- Regenerate fixture safely
-- Obtain owner ACK and add `golden-owner-approved` label
-
-5. If mismatch is not expected:
-- Treat as regression and assign to fixture owner + CI owner
-
-## Retry Wrapper Usage
-
-Use retries only for deep/non-gating steps.
-
+## Commands
+Retry wrapper (for deep/non-gating jobs only):
 ```bash
 php scripts/ci_retry_wrapper.php \
   --step golden-check-deep \
   --attempts 2 \
   --backoff 3 \
   --transient-exit-codes "75,137,143,255" \
-  --command "php scripts/golden_check.php --output artifacts/golden-summary.json"
+  --log artifacts/retry-golden.log \
+  --telemetry artifacts/retry-golden-telemetry.json \
+  --command "php scripts/golden_check.php --skip-label-check --output artifacts/golden-summary.json"
+```
+Example output:
+```text
+[retry] step=golden-check-deep attempt=1 exit=75
+[retry] step=golden-check-deep attempt=2 exit=0
 ```
 
-Outputs:
-- attempt log (`--log`)
-- telemetry JSON (`--telemetry`)
-
-## Flaky Test Triage and Quarantine
-
-Run detector locally against suspect test/command:
-
+Flaky detection:
 ```bash
 php scripts/detect_flaky_tests.php \
   --test app/public/wp-content/plugins/kh-smma/tests/Lib/MockLLMClientTest.php \
   --runs 10 \
   --output artifacts/flaky-report.json \
-  --telemetry artifacts/flaky-telemetry.json
+  --telemetry artifacts/flaky-telemetry.json \
+  --label-signal artifacts/flaky-label-signal.json
+```
+Example output:
+```text
+classification: flaky
+fail_rate: 0.3
 ```
 
-Interpretation:
-- exit `0`: stable pass
-- exit `1`: stable fail
-- exit `2`: flaky
+Correlated triage:
+```bash
+php scripts/ci_triage_report.php \
+  --golden-summary artifacts/golden-fast/golden-summary.json \
+  --flaky-report artifacts/flaky-report.json \
+  --golden-telemetry artifacts/golden-fast/golden-telemetry.json \
+  --flaky-telemetry artifacts/flaky-telemetry.json \
+  --output artifacts/ci-triage-report.json \
+  --markdown artifacts/ci-triage-report.md
+```
 
-When flaky (`fail_rate >= 0.2`):
-- apply `flake-investigate`
-- assign owner from test area
-- capture first/last failure traces from report
+## Artifacts
+- `artifacts/retry-golden.log`
+- `artifacts/retry-golden-telemetry.json`
+- `artifacts/flaky-report.json`
+- `artifacts/flaky-telemetry.json`
+- `artifacts/flaky-label-signal.json`
+- `artifacts/ci-triage-report.json`
 
-## Smoke Harness Reliability
+## Telemetry
+- `cic.retrial`
+- `cic.flaky_tests.detected`
+- `cic.weekly_health.started`
+- `cic.weekly_health.alert`
+- `cic.weekly_health.completed`
 
-`smoke-harness-fast` is treated as a fast signal and should not be auto-retried.
+Look in observability UI:
+- CIC Health dashboard panels `cic_retrial_rate` and `cic_flaky_tests_detected`
 
-If smoke fails:
-1. Inspect smoke artifacts/logs first.
-2. Reproduce with deterministic env locally.
-3. If infrastructure/transient, escalate to CI owner.
-4. If deterministic contract mismatch, route to fixture/consumer owner.
+## Failure modes and triage
+1. Retries exhausted:
+- Treat as infrastructure/platform issue if transient exit codes repeat.
+- Attach retry log + telemetry to incident.
 
-## Alert Acknowledge and Temporary Silence
+2. Stable fail (exit `1`) from flaky detector:
+- This is not flaky; open regression bug immediately.
 
-Only silence with explicit owner and ETA:
+3. Flaky classification (exit `2`):
+- Apply `flake-investigate` workflow label.
+- Assign owner and ETA.
 
-- Required fields in acknowledgment: alert code, owner, reason, ETA, rollback plan.
-- Maximum silence window: 24h for P1/P2, 1h for P0.
-- Link silence record to issue or incident thread.
+4. Mixed golden + flaky signal:
+- Prioritize deterministic golden mismatch first.
+- Use `ci-triage-report.json` probable cause + alert candidates.
 
-## Weekly Health Reporting
-
-Workflow: `.github/workflows/cic-weekly-health.yml`
-
-It aggregates last-7-day workflow runs and produces:
-- `artifacts/weekly-health-report.json`
-- `artifacts/weekly-health-report.md`
-
-If SLA alerts are detected, workflow creates an issue with run/artifact links.
+## PM sign-off checklist
+- [ ] Retry telemetry attached for deep checks.
+- [ ] Flaky report attached for suspect tests.
+- [ ] Correlated triage report attached when multiple signals fire.
+- [ ] Weekly health artifact reviewed for open SLA alerts.

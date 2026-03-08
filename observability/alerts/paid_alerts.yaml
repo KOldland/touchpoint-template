@@ -1,0 +1,51 @@
+version: 1
+name: paid-alerts
+owner: "@paid-owner"
+runbook: "docs/observability/alerting_runbook.md"
+alerts:
+  - id: paid_reconciliation_discrepancy_p0
+    severity: P0
+    condition: "paid_reconciliation_discrepancy_count > 5 for 1h"
+    route:
+      - pagerduty:paid-primary
+      - slack:#paid-alerts
+      - email:paid-ops
+    escalation:
+      after_minutes: 0
+      action: page_immediately
+    payload_fields:
+      - run_id
+      - discrepancy_count
+      - reconciliation_job_id
+      - artifact_url
+      - runbook_url
+
+  - id: smoke_harness_failure_rate_p1
+    severity: P1
+    condition: "smoke_harness_failure_rate > 5 for 1h"
+    route:
+      - slack:#cic-alerts
+      - email:ops-oncall
+    escalation:
+      after_minutes: 60
+      action: escalate_to_pager
+    payload_fields:
+      - run_id
+      - build_url
+      - smoke_artifact_url
+      - runbook_url
+
+  - id: cic_flaky_tests_detected_p2
+    severity: P2
+    condition: "cic_flaky_tests_detected > 3 for 24h"
+    route:
+      - ticket:ci-flaky-investigate
+      - slack:#cic-alerts
+    escalation:
+      after_minutes: 0
+      action: create_ticket
+    payload_fields:
+      - run_id
+      - owner_hint
+      - flaky_report_url
+      - runbook_url

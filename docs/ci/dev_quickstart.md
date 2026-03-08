@@ -100,6 +100,19 @@ php scripts/ci_triage_report.php \
   --markdown artifacts/ci-triage-report.md
 ```
 
+## 10. Release dry-run (CIC-08)
+
+```bash
+# preview deployment sequence with no side effects
+bash scripts/release_deploy.sh --env=staging --tag=ci-dryrun --dry-run
+
+# run deterministic release gates locally
+php scripts/release_gate_check.php --env=staging --artifact-dir=artifacts/release/local-gate --allow-missing-smoke=1
+
+# simulate canary toggle in local state-file mode
+php scripts/feature_flag_toggle.php --flag=khm_membership_transactional_emails_enabled --pct=5 --enabled=1 --actor=local-dev --dry-run
+```
+
 ## Common golden-check failures
 
 - Prompt mismatch:

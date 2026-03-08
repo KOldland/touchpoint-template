@@ -1,0 +1,60 @@
+{
+  "dashboard": "CIC Health",
+  "version": 1,
+  "owner": "@ci-qa-team",
+  "description": "Golden-check, retry and flaky-detection health for CIC pipelines.",
+  "panels": [
+    {
+      "id": "golden_check_failure_rate",
+      "title": "Golden Check Failure Rate (1h)",
+      "type": "timeseries",
+      "query": "golden_check_failure_rate",
+      "unit": "percent",
+      "thresholds": [
+        {"severity": "p1", "op": ">", "value": 5},
+        {"severity": "p0", "op": ">", "value": 10}
+      ]
+    },
+    {
+      "id": "golden_check_duration_p90",
+      "title": "Golden Check Duration p90",
+      "type": "timeseries",
+      "query": "golden_check_duration_p90",
+      "unit": "milliseconds",
+      "thresholds": [
+        {"severity": "p1", "op": ">", "value": 600000}
+      ]
+    },
+    {
+      "id": "golden_check_mismatch_count",
+      "title": "Golden Check Mismatch Count",
+      "type": "timeseries",
+      "query": "golden_check_mismatch_count",
+      "unit": "count"
+    },
+    {
+      "id": "cic_retrial_rate",
+      "title": "Retry Wrapper Retrials (30m)",
+      "type": "timeseries",
+      "query": "sum(rate(cic_retrial_total[30m]))",
+      "unit": "count",
+      "thresholds": [
+        {"severity": "p0", "op": ">", "value": 50}
+      ]
+    },
+    {
+      "id": "cic_flaky_tests_detected",
+      "title": "Flaky Tests Detected (24h)",
+      "type": "timeseries",
+      "query": "cic_flaky_tests_detected",
+      "unit": "count",
+      "thresholds": [
+        {"severity": "p2", "op": ">", "value": 3}
+      ]
+    }
+  ],
+  "links": {
+    "runbook": "docs/observability/alerting_runbook.md",
+    "triage_script": "scripts/ci_triage_report.php"
+  }
+}

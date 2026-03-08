@@ -1,0 +1,53 @@
+version: 1
+name: golden-check-alerts
+owner: "@ci-qa-team"
+runbook: "docs/observability/alerting_runbook.md"
+alerts:
+  - id: cic_golden_check_failure_rate_p0
+    severity: P0
+    condition: "golden_check_failure_rate > 10 for 1h"
+    route:
+      - pagerduty:cic-primary
+      - slack:#cic-alerts
+      - email:ops-oncall
+    escalation:
+      after_minutes: 0
+      action: page_immediately
+    payload_fields:
+      - run_id
+      - pr_url
+      - build_url
+      - artifact_url
+      - owner_hint
+      - runbook_url
+
+  - id: cic_golden_check_duration_p1
+    severity: P1
+    condition: "golden_check_duration_p90 > 600000 for 1h"
+    route:
+      - slack:#cic-alerts
+      - email:ops-oncall
+    escalation:
+      after_minutes: 60
+      action: escalate_to_pager
+    payload_fields:
+      - run_id
+      - build_url
+      - dashboard_url
+      - runbook_url
+
+  - id: cic_retrial_rate_p0
+    severity: P0
+    condition: "cic_retrial_rate > 50 for 30m"
+    route:
+      - pagerduty:cic-primary
+      - slack:#cic-alerts
+    escalation:
+      after_minutes: 0
+      action: page_immediately
+    payload_fields:
+      - run_id
+      - step
+      - attempt
+      - artifact_url
+      - runbook_url

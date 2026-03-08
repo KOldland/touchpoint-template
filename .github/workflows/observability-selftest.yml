@@ -1,0 +1,51 @@
+name: CIC Observability Self-Test
+
+on:
+  schedule:
+    - cron: '15 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  observability-selftest:
+    name: observability-selftest
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Run alert-fire test harness (dry-run)
+        run: |
+          mkdir -p artifacts/observability/selftest
+          php scripts/observability/alert_fire_test.php \
+            --mode=dry-run \
+            --alerts=P0,P1,P2 \
+            --run-id="${{ github.run_id }}" \
+            --build-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --output-dir=artifacts/observability/selftest
+
+      - name: Build triage helper snapshot
+        if: always()
+        run: |
+          php scripts/ci_triage_report.php \
+            --golden-summary artifacts/golden-fast/golden-summary.json \
+            --flaky-report artifacts/flaky-report.json \
+            --output artifacts/observability/selftest/ci-triage-report.json \
+            --markdown artifacts/observability/selftest/ci-triage-report.md || true
+
+      - name: Upload observability artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: observability-selftest-artifacts
+          path: artifacts/observability/selftest
+          if-no-files-found: warn

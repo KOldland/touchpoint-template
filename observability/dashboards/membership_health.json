@@ -1,0 +1,49 @@
+{
+  "dashboard": "Membership Health",
+  "version": 1,
+  "owner": "@membership-owner",
+  "description": "Membership attribution, webhook integrity, and transactional email reliability.",
+  "panels": [
+    {
+      "id": "membership_attribution_created",
+      "title": "Membership Attribution Created",
+      "type": "timeseries",
+      "query": "membership_attribution_created_total",
+      "unit": "count"
+    },
+    {
+      "id": "webhook_invalid_signature",
+      "title": "Webhook Invalid Signature",
+      "type": "timeseries",
+      "query": "webhook_invalid_signature_total",
+      "unit": "count",
+      "thresholds": [
+        {"severity": "p1", "op": ">", "value": 5}
+      ]
+    },
+    {
+      "id": "membership_email_failed",
+      "title": "Membership Email Failed",
+      "type": "timeseries",
+      "query": "membership_email_failed_total",
+      "unit": "count",
+      "thresholds": [
+        {"severity": "p1", "op": ">", "value": 5}
+      ]
+    },
+    {
+      "id": "membership_attribution_missing",
+      "title": "Membership Attribution Missing",
+      "type": "timeseries",
+      "query": "membership_attribution_missing_total",
+      "unit": "count",
+      "thresholds": [
+        {"severity": "p1", "op": ">", "value": 1}
+      ]
+    }
+  ],
+  "links": {
+    "runbook": "docs/observability/alerting_runbook.md",
+    "safety_thresholds": "app/public/wp-content/plugins/khm-plugin/docs/MEMBERSHIP_OPS_SAFETY_THRESHOLDS.md"
+  }
+}
