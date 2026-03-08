@@ -86,8 +86,10 @@ composer.lock
 wp-cli.local.yml
 wp-cli.yml
 
-# Security - never commit API keys or secrets
-*api_key*
-*secret*
-*password*
-*token*
+# Security - local secret material (keep untracked)
+.env.local.secrets
+.env.local.secrets.*
+*.pem
+*.key
+*.p12
+*.pfx

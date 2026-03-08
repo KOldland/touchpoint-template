@@ -14,6 +14,8 @@ Key events emitted by CIC scripts:
 - `cic.weekly_health.started`
 - `cic.weekly_health.alert`
 - `cic.weekly_health.completed`
+- `cic.secret_scan.passed`
+- `cic.secret_scan.failed`
 
 Primary CI artifacts:
 

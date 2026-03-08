@@ -40,6 +40,13 @@ jobs:
         working-directory: app/public/wp-content/plugins/khm-plugin
         run: composer install --prefer-dist --no-progress --no-interaction
 
+      - name: Secret preflight (webhook profile)
+        run: |
+          mkdir -p artifacts/khm-webhooks
+          php scripts/secret_preflight.php \
+            --profile khm-webhooks \
+            --output artifacts/khm-webhooks/secret-preflight.json
+
       - name: Secret leak scan (Stripe patterns)
         run: |
           ! grep -REn --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules "sk_test_[A-Za-z0-9]\{16,\}\|sk_live_[A-Za-z0-9]\{16,\}\|whsec_[A-Za-z0-9]\{16,\}" app/public/wp-content/plugins/khm-plugin
@@ -64,3 +71,11 @@ jobs:
         run: |
           echo "KHM webhook CI completed."
           echo "Make this workflow required in branch protection for merge blocking."
+
+      - name: Upload webhook secret artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: khm-webhooks-secret-artifacts
+          path: artifacts/khm-webhooks
+          if-no-files-found: warn

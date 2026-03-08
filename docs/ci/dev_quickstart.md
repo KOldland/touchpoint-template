@@ -6,6 +6,14 @@
 ./scripts/ci_local_env.sh
 ```
 
+Optional local secrets (untracked file):
+
+```bash
+cp ci/example.env .env.local.secrets
+chmod 600 .env.local.secrets
+./scripts/load_local_secrets.sh
+```
+
 ## 2. Run local golden-check
 
 ```bash
@@ -74,7 +82,13 @@ docker compose -f ci/dev-compose.yml exec php bash -lc \
 ./tools/install_hooks.sh
 ```
 
-This runs `php scripts/secret_scan.php` before each commit.
+This installs both `pre-commit` and `pre-push` secret scan hooks.
+
+To run scan manually:
+
+```bash
+php scripts/secret_scan.php --strict
+```
 
 ## 9. Build combined CI triage report
 

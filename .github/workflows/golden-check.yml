@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   secret-scan:
-    name: secret-scan
+    name: golden-secret-scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -28,7 +28,21 @@ jobs:
           php-version: '8.2'
 
       - name: Run secret scan
-        run: php scripts/secret_scan.php
+        run: |
+          mkdir -p artifacts/secret-scan
+          php scripts/secret_scan.php \
+            --strict \
+            --fix \
+            --output artifacts/secret-scan/findings.json \
+            --telemetry artifacts/secret-scan/telemetry.json
+
+      - name: Upload secret scan artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-secret-scan-artifacts
+          path: artifacts/secret-scan
+          if-no-files-found: warn
 
   golden-check:
     name: golden-check
@@ -38,6 +52,7 @@ jobs:
     env:
       BASE_REF: origin/${{ github.base_ref || 'main' }}
       KH_SMMA_TEST_MODE: 'ci'
+      KH_SMMA_GOLDEN_FIXTURE: 'generate_awareness_ok.json'
       CI: 'true'
       OPENAI_API_KEY: ''
       OPENAI_KEY: ''
@@ -60,6 +75,13 @@ jobs:
 
       - name: Install plugin dependencies
         run: cd app/public/wp-content/plugins/kh-smma && composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Secret preflight (CI deterministic profile)
+        run: |
+          mkdir -p artifacts/golden-fast
+          php scripts/secret_preflight.php \
+            --profile cic-ci \
+            --output artifacts/golden-fast/secret-preflight-ci.json
 
       - name: Verify fixture metadata + checksums
         run: KHM_VERIFY_STRICT=1 php scripts/verify_golden_fixtures.php
@@ -134,6 +156,7 @@ jobs:
     env:
       BASE_REF: origin/${{ github.base_ref || 'main' }}
       KH_SMMA_TEST_MODE: 'ci'
+      KH_SMMA_GOLDEN_FIXTURE: 'generate_awareness_ok.json'
       CI: 'true'
       OPENAI_API_KEY: ''
       OPENAI_KEY: ''

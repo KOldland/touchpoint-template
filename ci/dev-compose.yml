@@ -6,6 +6,8 @@ services:
     working_dir: /workspace
     volumes:
       - ..:/workspace
+    # Keep secrets outside this file. Use .env.local.secrets (untracked)
+    # and optionally load with: docker compose --env-file ../.env.local.secrets ...
     environment:
       KH_SMMA_TEST_MODE: "ci"
       CI: "true"
@@ -23,6 +25,7 @@ services:
     working_dir: /workspace
     volumes:
       - ..:/workspace
+    # Do not bake secrets in image or compose file.
     environment:
       KH_SMMA_TEST_MODE: "ci"
       CI: "true"

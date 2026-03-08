@@ -19,6 +19,12 @@ Local CI parity environment exported:
 - KH_SMMA_GOLDEN_FIXTURE=${KH_SMMA_GOLDEN_FIXTURE}
 
 Real LLM key env vars were unset for deterministic test safety.
+No secrets are written to disk by this script.
+
+Optional local secret bootstrap (untracked file):
+  cp ci/example.env .env.local.secrets
+  chmod 600 .env.local.secrets
+  ./scripts/load_local_secrets.sh
 
 Next commands:
   php scripts/dev_golden_check.php --fixture "${KH_SMMA_GOLDEN_FIXTURE}" --output artifacts/dev-golden-check

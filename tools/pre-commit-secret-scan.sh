@@ -9,5 +9,11 @@ if [[ ! -f scripts/secret_scan.php ]]; then
   exit 0
 fi
 
-echo "[pre-commit] running secret scan"
-php scripts/secret_scan.php
+STAGED_FILES="$(git diff --cached --name-only --diff-filter=ACM | tr '\n' ',' | sed 's/,$//')"
+if [[ -z "${STAGED_FILES}" ]]; then
+  echo "[pre-commit] no staged files to scan."
+  exit 0
+fi
+
+echo "[pre-commit] running secret scan on staged files"
+php scripts/secret_scan.php --paths "${STAGED_FILES}" --strict --fix --output artifacts/secret-scan-precommit.json --telemetry artifacts/secret-scan-precommit-telemetry.json
