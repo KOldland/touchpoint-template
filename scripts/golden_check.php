@@ -11,18 +11,27 @@ $event_path = $options['event'] ?? (string) getenv('GITHUB_EVENT_PATH');
 $output_path = $options['output'] ?? 'artifacts/golden-summary.json';
 $diff_dir = $options['diff-dir'] ?? 'artifacts/golden-diffs';
 $zip_path = $options['zip'] ?? 'artifacts/golden-diff.zip';
+$telemetry_path = $options['telemetry-out'] ?? (dirname($output_path) . '/golden-telemetry.json');
+$metrics_path = $options['metrics-out'] ?? (dirname($output_path) . '/golden-metrics.json');
+$run_id = (string)($options['run-id'] ?? getenv('GITHUB_RUN_ID') ?: 'local');
+$pr_ref = (string)(getenv('GITHUB_REF_NAME') ?: getenv('GITHUB_HEAD_REF') ?: 'local');
 $skip_label_check = isset($options['skip-label-check']);
 $fixtures_override = isset($options['fixtures']) ? array_values(array_filter(array_map('trim', explode(',', (string) $options['fixtures'])))) : array();
+$started_at = microtime(true);
+$telemetry_events = array();
 
 ensure_ci_key_safety();
 
 prepare_dir(dirname($output_path));
 prepare_dir($diff_dir);
+prepare_dir(dirname($telemetry_path));
+prepare_dir(dirname($metrics_path));
 
 $summary = array(
 	'result' => 'success',
 	'base' => $base,
 	'head' => $head,
+	'run_id' => $run_id,
 	'checked_fixtures' => array(),
 	'mismatches' => array(),
 	'governance' => array('status' => 'passed'),
@@ -45,8 +54,25 @@ if (!$skip_label_check) {
 			'exit_code' => $label_exit,
 			'message' => implode("\n", $label_output),
 		);
+		$summary['duration_ms'] = (int) round((microtime(true) - $started_at) * 1000);
+		$telemetry_events[] = telemetry_event('cic.golden_check.started', array(
+			'run_id' => $run_id,
+			'pr' => $pr_ref,
+			'head' => $head,
+			'fixture_count' => 0,
+		));
+		$telemetry_events[] = telemetry_event('cic.golden_check.completed', array(
+			'run_id' => $run_id,
+			'pr' => $pr_ref,
+			'duration_ms' => $summary['duration_ms'],
+			'result' => 'failure',
+			'mismatch_count' => 0,
+			'governance_status' => 'failed',
+		));
 		write_summary($output_path, $summary);
-		write_zip($zip_path, array($output_path));
+		write_telemetry($telemetry_path, $telemetry_events);
+		write_metrics($metrics_path, $summary);
+		write_zip($zip_path, array($output_path, $telemetry_path, $metrics_path));
 		fwrite(STDERR, implode("\n", $label_output) . "\n");
 		exit($label_exit);
 	}
@@ -55,6 +81,12 @@ if (!$skip_label_check) {
 $changed_files = get_changed_files($base, $head);
 $changed_fixtures = changed_fixture_names($changed_files);
 $fixtures = determine_fixtures_to_check($fixtures_override, $changed_fixtures);
+$telemetry_events[] = telemetry_event('cic.golden_check.started', array(
+	'run_id' => $run_id,
+	'pr' => $pr_ref,
+	'head' => $head,
+	'fixture_count' => count($fixtures),
+));
 
 $owner_map = discover_owner_map();
 
@@ -114,16 +146,35 @@ foreach ($fixtures as $fixture) {
 			'diff_file' => $diff_file,
 			'reason' => 'canonical_mismatch',
 		);
+		$telemetry_events[] = telemetry_event('cic.golden_check.failure.detail', array(
+			'run_id' => $run_id,
+			'fixture' => $fixture,
+			'owner' => $owner,
+			'checksum_expected' => $expected_checksum,
+			'checksum_actual' => $actual_checksum,
+			'reason' => 'canonical_mismatch',
+		));
 	}
 }
 
 if (!empty($summary['mismatches'])) {
 	$summary['result'] = 'failure';
 }
+$summary['duration_ms'] = (int) round((microtime(true) - $started_at) * 1000);
+$summary['fixture_count'] = count($fixtures);
+$telemetry_events[] = telemetry_event('cic.golden_check.completed', array(
+	'run_id' => $run_id,
+	'pr' => $pr_ref,
+	'duration_ms' => $summary['duration_ms'],
+	'result' => $summary['result'],
+	'mismatch_count' => count($summary['mismatches']),
+));
 
 write_summary($output_path, $summary);
+write_telemetry($telemetry_path, $telemetry_events);
+write_metrics($metrics_path, $summary);
 
-$artifact_files = array($output_path);
+$artifact_files = array($output_path, $telemetry_path, $metrics_path);
 foreach ($summary['mismatches'] as $mismatch) {
 	if (isset($mismatch['diff_file']) && is_string($mismatch['diff_file']) && is_file($mismatch['diff_file'])) {
 		$artifact_files[] = $mismatch['diff_file'];
@@ -482,4 +533,54 @@ function mismatch_record(string $fixture, string $owner, string $reason, string 
 		'checksum_actual' => $actual,
 		'diff_file' => $diff,
 	);
+}
+
+/**
+ * @param array<string,mixed> $fields
+ * @return array<string,mixed>
+ */
+function telemetry_event(string $name, array $fields): array {
+	return array_merge(
+		array(
+			'event' => $name,
+			'timestamp' => gmdate('c'),
+		),
+		$fields
+	);
+}
+
+/**
+ * @param list<array<string,mixed>> $events
+ */
+function write_telemetry(string $path, array $events): void {
+	$encoded = json_encode($events, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+	if ($encoded === false) {
+		throw new RuntimeException('Unable to encode golden telemetry JSON.');
+	}
+	file_put_contents($path, $encoded . PHP_EOL);
+}
+
+/**
+ * @param array<string,mixed> $summary
+ */
+function write_metrics(string $path, array $summary): void {
+	$duration = (int)($summary['duration_ms'] ?? 0);
+	$mismatch_count = is_array($summary['mismatches'] ?? null) ? count($summary['mismatches']) : 0;
+	$result = (string)($summary['result'] ?? 'unknown');
+
+	$metrics = array(
+		'golden_check_failure_rate' => $result === 'failure' ? 1.0 : 0.0,
+		'golden_check_duration_ms' => $duration,
+		'golden_check_mismatch_count' => $mismatch_count,
+		'golden_check_duration_p50' => $duration,
+		'golden_check_duration_p90' => $duration,
+		'result' => $result,
+		'generated_at' => gmdate('c'),
+	);
+
+	$encoded = json_encode($metrics, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+	if ($encoded === false) {
+		throw new RuntimeException('Unable to encode golden metrics JSON.');
+	}
+	file_put_contents($path, $encoded . PHP_EOL);
 }

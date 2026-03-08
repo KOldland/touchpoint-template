@@ -2,6 +2,12 @@
 
 `golden-check` is the deterministic CI gate for fixture parity and fixture governance.
 
+## CI execution model
+
+- `golden-check` (fast gate): deterministic core fixtures, no automatic retries, merge-blocking.
+- `golden-check-deep`: full fixture coverage, retryable via `scripts/ci_retry_wrapper.php`, non-blocking severity for triage.
+- `smoke-harness-fast`: deterministic smoke signal when smoke harness script exists.
+
 ## Local run (developer wrapper)
 
 ```bash
@@ -19,6 +25,17 @@ php scripts/golden_check.php \
   --output artifacts/golden-summary.json \
   --diff-dir artifacts/golden-diffs \
   --zip artifacts/golden-diff.zip
+```
+
+## Deep run with retry wrapper
+
+```bash
+php scripts/ci_retry_wrapper.php \
+  --step golden-check-deep \
+  --attempts 2 \
+  --backoff 3 \
+  --transient-exit-codes "75,137,143,255" \
+  --command "php scripts/golden_check.php --output artifacts/golden-summary.json --diff-dir artifacts/golden-diffs --zip artifacts/golden-diff.zip"
 ```
 
 ## Governance
@@ -46,3 +63,13 @@ php scripts/regenerate_fixture_ui.php --input recorded.json --fixture-name gener
 ```
 
 The tool writes preview output under `tmp/golden-preview/*` and does not auto-commit.
+
+5. Build a correlated triage report from golden + flaky outputs:
+
+```bash
+php scripts/ci_triage_report.php \
+  --golden-summary artifacts/golden-summary.json \
+  --flaky-report artifacts/flaky-report.json \
+  --output artifacts/ci-triage-report.json \
+  --markdown artifacts/ci-triage-report.md
+```

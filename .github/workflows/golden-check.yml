@@ -1,0 +1,245 @@
+name: Golden Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
+    paths:
+      - 'app/public/wp-content/plugins/kh-smma/tests/fixtures/golden/**'
+      - 'scripts/**'
+      - 'docs/contracts/**'
+      - '.github/workflows/golden-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Run secret scan
+        run: php scripts/secret_scan.php
+
+  golden-check:
+    name: golden-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [secret-scan]
+    env:
+      BASE_REF: origin/${{ github.base_ref || 'main' }}
+      KH_SMMA_TEST_MODE: 'ci'
+      CI: 'true'
+      OPENAI_API_KEY: ''
+      OPENAI_KEY: ''
+      ANTHROPIC_API_KEY: ''
+      ANTHROPIC_KEY: ''
+      DUAL_GPT_API_KEY: ''
+      LLM_API_KEY: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install plugin dependencies
+        run: cd app/public/wp-content/plugins/kh-smma && composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Verify fixture metadata + checksums
+        run: KHM_VERIFY_STRICT=1 php scripts/verify_golden_fixtures.php
+
+      - name: Enforce owner label for fixture/contract changes
+        run: |
+          php scripts/label_check.php \
+            --event "$GITHUB_EVENT_PATH" \
+            --base "$BASE_REF" \
+            --head HEAD
+
+      - name: Run fast golden parity check (no retries)
+        run: |
+          mkdir -p artifacts/golden-fast
+          php scripts/golden_check.php \
+            --run-id "${{ github.run_id }}" \
+            --base "$BASE_REF" \
+            --head HEAD \
+            --fixtures "generate_awareness_ok.json,compliance_ok.json" \
+            --output artifacts/golden-fast/golden-summary.json \
+            --diff-dir artifacts/golden-fast/diffs \
+            --zip artifacts/golden-fast/golden-diff.zip \
+            --telemetry-out artifacts/golden-fast/golden-telemetry.json \
+            --metrics-out artifacts/golden-fast/golden-metrics.json
+
+      - name: Render fast diff HTML
+        if: always()
+        run: |
+          python3 scripts/extract_golden_diffs.py artifacts/golden-fast/golden-diff.zip --out artifacts/golden-fast/golden-diff.html || true
+
+      - name: Upload fast artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-fast-artifacts
+          path: artifacts/golden-fast
+          if-no-files-found: warn
+
+      - name: Post fast mismatch summary
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'artifacts/golden-fast/golden-summary.json';
+            let body = '**golden-check failed (fast gate)**\n\n';
+            if (fs.existsSync(summaryPath)) {
+              const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+              const mismatches = summary.mismatches || [];
+              body += `Result: ${summary.result}\nDuration: ${summary.duration_ms || 'n/a'}ms\n\n`;
+              if (mismatches.length > 0) {
+                body += mismatches.map(m => `- ${m.fixture || m.stage} (owner: ${m.owner || '@unknown'})`).join('\n');
+                body += '\n\nArtifacts: golden-fast-artifacts (includes golden-diff.html)';
+              }
+            } else {
+              body += 'No summary artifact found. Check logs.';
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+  golden-check-deep:
+    name: golden-check-deep
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [golden-check]
+    continue-on-error: true
+    env:
+      BASE_REF: origin/${{ github.base_ref || 'main' }}
+      KH_SMMA_TEST_MODE: 'ci'
+      CI: 'true'
+      OPENAI_API_KEY: ''
+      OPENAI_KEY: ''
+      ANTHROPIC_API_KEY: ''
+      ANTHROPIC_KEY: ''
+      DUAL_GPT_API_KEY: ''
+      LLM_API_KEY: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install plugin dependencies (retryable)
+        run: |
+          mkdir -p artifacts/golden-deep
+          php scripts/ci_retry_wrapper.php \
+            --step "composer.install" \
+            --attempts 2 \
+            --backoff 2 \
+            --transient-exit-codes "75,137,143,255" \
+            --log artifacts/golden-deep/retry-install.log \
+            --telemetry artifacts/golden-deep/retry-install-telemetry.json \
+            --command "cd app/public/wp-content/plugins/kh-smma && composer install --prefer-dist --no-progress --no-interaction"
+
+      - name: Run full golden check (retry transient failures once)
+        run: |
+          php scripts/ci_retry_wrapper.php \
+            --step "golden-check-deep" \
+            --attempts 2 \
+            --backoff 3 \
+            --transient-exit-codes "75,137,143,255" \
+            --log artifacts/golden-deep/retry-golden.log \
+            --telemetry artifacts/golden-deep/retry-golden-telemetry.json \
+            --command "php scripts/golden_check.php --run-id ${{ github.run_id }} --base \"$BASE_REF\" --head HEAD --fixtures \"generate_awareness_ok.json,generate_sponsor_warn.json,generate_sponsor_fail.json,google_ad_draft.json,compliance_ok.json,compliance_warn.json,compliance_fail.json,checkout_session_completed.json,invoice_paid.json,checkout_session_no_consent.json,paid_adapter_dry_run_manifest.json,paid_adapter_execute_response.json\" --output artifacts/golden-deep/golden-summary.json --diff-dir artifacts/golden-deep/diffs --zip artifacts/golden-deep/golden-diff.zip --telemetry-out artifacts/golden-deep/golden-telemetry.json --metrics-out artifacts/golden-deep/golden-metrics.json"
+
+      - name: Render deep diff HTML
+        if: always()
+        run: |
+          python3 scripts/extract_golden_diffs.py artifacts/golden-deep/golden-diff.zip --out artifacts/golden-deep/golden-diff.html || true
+
+      - name: Build CI triage report
+        if: always()
+        run: |
+          php scripts/ci_triage_report.php \
+            --golden-summary artifacts/golden-deep/golden-summary.json \
+            --flaky-report artifacts/flaky-report.json \
+            --output artifacts/golden-deep/ci-triage-report.json \
+            --markdown artifacts/golden-deep/ci-triage-report.md || true
+
+      - name: Upload deep artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-deep-artifacts
+          path: artifacts/golden-deep
+          if-no-files-found: warn
+
+  smoke-harness-fast:
+    name: smoke-harness-fast
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [secret-scan]
+    env:
+      KH_SMMA_TEST_MODE: 'ci'
+      CI: 'true'
+      OPENAI_API_KEY: ''
+      OPENAI_KEY: ''
+      ANTHROPIC_API_KEY: ''
+      ANTHROPIC_KEY: ''
+      DUAL_GPT_API_KEY: ''
+      LLM_API_KEY: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install plugin dependencies
+        run: cd app/public/wp-content/plugins/kh-smma && composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run smoke harness (no retries)
+        run: |
+          mkdir -p artifacts/smoke-fast
+          if [ -f scripts/smoke_harness.php ]; then
+            php scripts/smoke_harness.php --output artifacts/smoke-fast
+          else
+            echo '{"result":"skipped","reason":"smoke_harness_missing"}' > artifacts/smoke-fast/smoke-summary.json
+          fi
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-fast-artifacts
+          path: artifacts/smoke-fast
+          if-no-files-found: warn
