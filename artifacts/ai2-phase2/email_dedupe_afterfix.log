@@ -1,0 +1,34 @@
+KHM Marketing Suite initialized successfully
+[KHM Elementor] Widgets registered. Total widget types: 153
+[KHM GEO] AnswerCard block registered at /Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/src/Blocks/answer-card
+[KHM GEO] Registering suggest plugin script: http://touchpoint-template-remote.local/wp-content/plugins/khm-plugin/src/Blocks/answer-card/build/suggest-plugin.js
+[KHM GEO] Asset data: Array
+(
+    [dependencies] => Array
+        (
+            [0] => react
+            [1] => wp-api-fetch
+            [2] => wp-blocks
+            [3] => wp-components
+            [4] => wp-data
+            [5] => wp-editor
+            [6] => wp-element
+            [7] => wp-i18n
+            [8] => wp-plugins
+            [9] => wp-primitives
+        )
+
+    [version] => 4d6ee66f92f71b991080
+)
+
+[KHM GEO] Suggest plugin assets registered successfully
+KHM Plugin Registry: Successfully registered plugin 'social-strip'
+Social Strip successfully registered with KHM Marketing Suite
+KHM SEO: init_components start.
+KHM SEO: GEO manager status: ready
+KHM SEO: Elementor integration disabled via KHM_SEO_DISABLE_ELEMENTOR.
+REFERENCE: session:cs_phase2_email_001
+FIRST: 1
+SECOND: 1
+ROW_COUNT: 1
+STATUS: sent

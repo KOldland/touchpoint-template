@@ -1,0 +1,112 @@
+Test bootstrap loaded
+PHPUnit 9.6.34 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.1.33
+Configuration: app/public/wp-content/plugins/khm-plugin/phpunit.xml
+
+KHM webhook webhook.invalid_event {"payload_hash":"daab6100e0e84fe7382b4a78535e504971260ce5e84422a52b85d68e70719aa9"}
+.KHM webhook membership.renewal {"user_id":999,"invoice_id":"in_test_12345","subscription_id":""}
+KHM webhook membership.email.skipped {"type":"payment","user_id":999,"reason":"transactional_emails_disabled","reference":"invoice:in_test_12345"}
+KHM webhook webhook.processed {"event_id":"evt_test_12345","event_type":"invoice.paid","trace_id":"aa65baa9-c21d-47a3-a607-a04a9576d979","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_test_12345","event_type":"invoice.paid","latency_ms":1}
+.KHM webhook membership.renewal {"user_id":999,"invoice_id":"in_test_12345","subscription_id":""}
+KHM webhook membership.email.skipped {"type":"payment","user_id":999,"reason":"transactional_emails_disabled","reference":"invoice:in_test_12345"}
+KHM webhook webhook.processed {"event_id":"evt_test_12345","event_type":"invoice.paid","trace_id":"6986829b-26eb-4a45-b391-67724fd355f4","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_test_12345","event_type":"invoice.paid","latency_ms":0}
+.KHM webhook membership.attribution.confirmed {"user_id":123,"schedule_id":0,"reference":"cs_test123","consent":0}
+KHM webhook membership.attribution.missing {"user_id":123,"reference":"cs_test123","reason":"missing_schedule_id"}
+KHM webhook membership.signup {"user_id":123,"tier":15,"attribution_id":"","payment_type":"subscription"}
+KHM webhook landing.success {"user_id":123,"schedule_id":0,"sponsor_id":0,"utm_source":"","utm_campaign":"","reference":"cs_test123"}
+KHM webhook membership.email.skipped {"type":"welcome","user_id":123,"reason":"transactional_emails_disabled","reference":"cs_test123"}
+KHM webhook membership.email.skipped {"type":"payment","user_id":123,"reason":"transactional_emails_disabled","reference":"session:cs_test123"}
+KHM webhook webhook.processed {"event_id":"evt_checkout_completed","event_type":"checkout.session.completed","trace_id":"5db71237-e12e-4932-becb-06ef13e7f3ea","latency_ms":29}
+KHM webhook webhook.received {"event_id":"evt_checkout_completed","event_type":"checkout.session.completed","latency_ms":29}
+.KHM webhook membership.attribution.confirmed {"user_id":123,"schedule_id":0,"reference":"cs_test123","consent":0}
+KHM webhook membership.attribution.missing {"user_id":123,"reference":"cs_test123","reason":"missing_schedule_id"}
+KHM webhook membership.signup {"user_id":123,"tier":25,"attribution_id":"","payment_type":"subscription"}
+KHM webhook landing.success {"user_id":123,"schedule_id":0,"sponsor_id":0,"utm_source":"","utm_campaign":"","reference":"cs_test123"}
+KHM webhook membership.email.skipped {"type":"welcome","user_id":123,"reason":"transactional_emails_disabled","reference":"cs_test123"}
+KHM webhook membership.email.skipped {"type":"payment","user_id":123,"reason":"transactional_emails_disabled","reference":"session:cs_test123"}
+KHM webhook webhook.processed {"event_id":"evt_checkout_completed","event_type":"checkout.session.completed","trace_id":"68d611ba-892d-4c03-b312-ca5d0b8d539d","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_checkout_completed","event_type":"checkout.session.completed","latency_ms":0}
+..KHM webhook membership.renewal {"user_id":123,"invoice_id":"in_paid_123","subscription_id":""}
+KHM webhook membership.email.skipped {"type":"payment","user_id":123,"reason":"transactional_emails_disabled","reference":"invoice:in_paid_123"}
+KHM webhook webhook.processed {"event_id":"evt_invoice_paid","event_type":"invoice.paid","trace_id":"14bafdca-c808-460f-bf9d-84673238a23e","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_invoice_paid","event_type":"invoice.paid","latency_ms":0}
+.KHM webhook membership.payment_failed {"user_id":456,"invoice_id":"in_failed_456","reason":""}
+KHM webhook webhook.processed {"event_id":"evt_payment_failed","event_type":"invoice.payment_failed","trace_id":"87120117-d029-400e-8109-4ebc6dad2b52","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_payment_failed","event_type":"invoice.payment_failed","latency_ms":0}
+.KHM webhook webhook.processed {"event_id":"evt_sub_deleted","event_type":"customer.subscription.deleted","trace_id":"fdc1de90-6759-45f3-be18-cc804fa93549","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_sub_deleted","event_type":"customer.subscription.deleted","latency_ms":0}
+.KHM webhook webhook.processed {"event_id":"evt_unknown","event_type":"customer.unknown_event","trace_id":"cf78ffd3-7acd-4b20-96ba-5b6ecf24208b","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_unknown","event_type":"customer.unknown_event","latency_ms":0}
+.KHM webhook processing failed | event_id=evt_rate_1 | type=invoice.paid | trace_id=bf0aea6a-3b2d-4b55-afef-f51db7c8e50f | error=invoice.paid unable to resolve user
+KHM webhook webhook.failed {"event_id":"evt_rate_1","event_type":"invoice.paid","trace_id":"bf0aea6a-3b2d-4b55-afef-f51db7c8e50f","error":"invoice.paid unable to resolve user"}
+KHM webhook webhook.received {"event_id":"evt_rate_1","event_type":"invoice.paid","latency_ms":0}
+KHM webhook webhook.rate_limited {"ip":"198.51.100.77"}
+.KHM webhook processing failed | event_id=evt_checkout_missing_tier | type=checkout.session.completed | trace_id=5300312e-1ca5-4422-995a-65667b39b1ed | error=checkout.session.completed missing membership tier metadata
+KHM webhook webhook.failed {"event_id":"evt_checkout_missing_tier","event_type":"checkout.session.completed","trace_id":"5300312e-1ca5-4422-995a-65667b39b1ed","error":"checkout.session.completed missing membership tier metadata"}
+KHM webhook webhook.received {"event_id":"evt_checkout_missing_tier","event_type":"checkout.session.completed","latency_ms":0}
+KHM webhook processing failed | event_id=evt_checkout_missing_tier | type=checkout.session.completed | trace_id=test-trace | error=checkout.session.completed missing membership tier metadata
+KHM webhook webhook.failed {"event_id":"evt_checkout_missing_tier","event_type":"checkout.session.completed","trace_id":"test-trace","error":"checkout.session.completed missing membership tier metadata"}
+.KHM webhook processing failed | event_id=evt_invoice_missing_user | type=invoice.paid | trace_id=bf65fc2f-3eda-4884-97c1-bb5db694eddb | error=invoice.paid unable to resolve user
+KHM webhook webhook.failed {"event_id":"evt_invoice_missing_user","event_type":"invoice.paid","trace_id":"bf65fc2f-3eda-4884-97c1-bb5db694eddb","error":"invoice.paid unable to resolve user"}
+KHM webhook webhook.received {"event_id":"evt_invoice_missing_user","event_type":"invoice.paid","latency_ms":0}
+KHM webhook processing failed | event_id=evt_invoice_missing_user | type=invoice.paid | trace_id=test-trace | error=invoice.paid unable to resolve user
+KHM webhook webhook.failed {"event_id":"evt_invoice_missing_user","event_type":"invoice.paid","trace_id":"test-trace","error":"invoice.paid unable to resolve user"}
+.KHM webhook membership.renewal {"user_id":321,"invoice_id":"in_replay","subscription_id":"sub_replay"}
+KHM webhook membership.email.skipped {"type":"payment","user_id":321,"reason":"transactional_emails_disabled","reference":"invoice:in_replay"}
+KHM webhook webhook.processed {"event_id":"evt_replay_1","event_type":"invoice.paid","trace_id":"trace-1","latency_ms":0}
+KHM webhook webhook.processed {"event_id":"evt_replay_2","event_type":"invoice.paid","trace_id":"trace-2","latency_ms":0}
+.KHM membership security anomaly {"code":"checkout_tier_price_mismatch","message":"Checkout metadata tier\/price mismatch.","context":{"event_id":"evt_checkout_mismatch","session_id":"cs_mismatch","user_id":123,"tier_slug":"pro","stripe_price_id":"price_tampered"}}
+KHM webhook webhook.security_anomaly {"code":"checkout_tier_price_mismatch","message":"Checkout metadata tier\/price mismatch.","context":{"event_id":"evt_checkout_mismatch","session_id":"cs_mismatch","user_id":123,"tier_slug":"pro","stripe_price_id":"price_tampered"}}
+KHM webhook processing failed | event_id=evt_checkout_mismatch | type=checkout.session.completed | trace_id=88855dda-52b4-4f69-af3e-3dc9ca88000c | error=checkout.session.completed tier/price mismatch
+KHM webhook webhook.failed {"event_id":"evt_checkout_mismatch","event_type":"checkout.session.completed","trace_id":"88855dda-52b4-4f69-af3e-3dc9ca88000c","error":"checkout.session.completed tier\/price mismatch"}
+KHM webhook webhook.received {"event_id":"evt_checkout_mismatch","event_type":"checkout.session.completed","latency_ms":0}
+KHM membership security anomaly {"code":"checkout_tier_price_mismatch","message":"Checkout metadata tier\/price mismatch.","context":{"event_id":"evt_checkout_mismatch","session_id":"cs_mismatch","user_id":123,"tier_slug":"pro","stripe_price_id":"price_tampered"}}
+KHM webhook webhook.security_anomaly {"code":"checkout_tier_price_mismatch","message":"Checkout metadata tier\/price mismatch.","context":{"event_id":"evt_checkout_mismatch","session_id":"cs_mismatch","user_id":123,"tier_slug":"pro","stripe_price_id":"price_tampered"}}
+KHM webhook processing failed | event_id=evt_checkout_mismatch | type=checkout.session.completed | trace_id=trace-mismatch | error=checkout.session.completed tier/price mismatch
+KHM webhook webhook.failed {"event_id":"evt_checkout_mismatch","event_type":"checkout.session.completed","trace_id":"trace-mismatch","error":"checkout.session.completed tier\/price mismatch"}
+.KHM webhook membership.subscription_updated {"user_id":901,"subscription_id":"sub_matrix","status":"trial"}
+KHM webhook webhook.processed {"event_id":"evt_sub_matrix_0","event_type":"customer.subscription.updated","trace_id":"trace-sub-matrix-0","latency_ms":0}
+KHM webhook membership.subscription_updated {"user_id":901,"subscription_id":"sub_matrix","status":"active"}
+KHM webhook webhook.processed {"event_id":"evt_sub_matrix_1","event_type":"customer.subscription.updated","trace_id":"trace-sub-matrix-1","latency_ms":0}
+KHM webhook membership.subscription_updated {"user_id":901,"subscription_id":"sub_matrix","status":"pending_cancel"}
+KHM webhook webhook.processed {"event_id":"evt_sub_matrix_2","event_type":"customer.subscription.updated","trace_id":"trace-sub-matrix-2","latency_ms":0}
+KHM webhook membership.subscription_updated {"user_id":901,"subscription_id":"sub_matrix","status":"past_due"}
+KHM webhook webhook.processed {"event_id":"evt_sub_matrix_3","event_type":"customer.subscription.updated","trace_id":"trace-sub-matrix-3","latency_ms":0}
+KHM webhook membership.subscription_updated {"user_id":901,"subscription_id":"sub_matrix","status":"canceled"}
+KHM webhook webhook.processed {"event_id":"evt_sub_matrix_4","event_type":"customer.subscription.updated","trace_id":"trace-sub-matrix-4","latency_ms":0}
+.KHM webhook membership.subscription_updated {"user_id":902,"subscription_id":"sub_plan_change","status":"active"}
+KHM webhook webhook.processed {"event_id":"evt_sub_plan_change","event_type":"customer.subscription.updated","trace_id":"trace-plan-change","latency_ms":0}
+.KHM webhook membership.attribution.confirmed {"user_id":123,"schedule_id":77,"reference":"cs_no_consent","consent":0}
+KHM webhook membership.signup {"user_id":123,"tier":122,"attribution_id":"","payment_type":"subscription"}
+KHM webhook landing.success {"user_id":123,"schedule_id":77,"sponsor_id":11,"utm_source":"newsletter","utm_campaign":"spring","reference":"cs_no_consent"}
+KHM webhook membership.email.skipped {"type":"welcome","user_id":123,"reason":"transactional_emails_disabled","reference":"cs_no_consent"}
+KHM webhook membership.email.skipped {"type":"payment","user_id":123,"reason":"transactional_emails_disabled","reference":"session:cs_no_consent"}
+KHM webhook webhook.processed {"event_id":"evt_checkout_no_consent","event_type":"checkout.session.completed","trace_id":"b2fce6e9-ea73-4f9a-9db1-1e66e2c7ba12","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_checkout_no_consent","event_type":"checkout.session.completed","latency_ms":0}
+.KHM webhook processing failed | event_id=evt_dead_letter_1 | type=invoice.paid | trace_id=trace-dead-letter | error=invoice.paid unable to resolve user
+KHM webhook webhook.failed {"event_id":"evt_dead_letter_1","event_type":"invoice.paid","trace_id":"trace-dead-letter","error":"invoice.paid unable to resolve user"}
+.KHM webhook webhook.invalid_signature {"code":"khm_invalid_signature","message":"No signatures found matching the expected signature for payload"}
+.KHM webhook membership.attribution.created {"user_id":123,"schedule_id":555,"sponsor_id":0,"reference":"cs_temp_fallback_unit"}
+KHM webhook membership.attribution.confirmed {"user_id":123,"schedule_id":555,"reference":"cs_temp_fallback_unit","consent":1}
+KHM webhook membership.signup {"user_id":123,"tier":136,"attribution_id":"","payment_type":"subscription"}
+KHM webhook landing.success {"user_id":123,"schedule_id":555,"sponsor_id":0,"utm_source":"","utm_campaign":"temp_campaign","reference":"cs_temp_fallback_unit"}
+KHM webhook membership.email.skipped {"type":"welcome","user_id":123,"reason":"transactional_emails_disabled","reference":"cs_temp_fallback_unit"}
+KHM webhook membership.email.skipped {"type":"payment","user_id":123,"reason":"transactional_emails_disabled","reference":"session:cs_temp_fallback_unit"}
+KHM webhook webhook.processed {"event_id":"evt_temp_fallback_001","event_type":"checkout.session.completed","trace_id":"eaf0afbe-7460-45cc-bb9b-f3d62214a833","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_temp_fallback_001","event_type":"checkout.session.completed","latency_ms":0}
+.KHM webhook membership.attribution.created {"user_id":123,"schedule_id":555,"sponsor_id":0,"reference":"cs_temp_fallback_unit"}
+KHM webhook membership.attribution.confirmed {"user_id":123,"schedule_id":555,"reference":"cs_temp_fallback_unit","consent":1}
+KHM webhook membership.signup {"user_id":123,"tier":146,"attribution_id":"","payment_type":"subscription"}
+KHM webhook landing.success {"user_id":123,"schedule_id":555,"sponsor_id":0,"utm_source":"","utm_campaign":"temp_campaign","reference":"cs_temp_fallback_unit"}
+KHM webhook membership.email.skipped {"type":"welcome","user_id":123,"reason":"transactional_emails_disabled","reference":"cs_temp_fallback_unit"}
+KHM webhook membership.email.skipped {"type":"payment","user_id":123,"reason":"transactional_emails_disabled","reference":"session:cs_temp_fallback_unit"}
+KHM webhook webhook.processed {"event_id":"evt_temp_fallback_001","event_type":"checkout.session.completed","trace_id":"4db778f8-7d82-460a-903e-79d55bf44855","latency_ms":0}
+KHM webhook webhook.received {"event_id":"evt_temp_fallback_001","event_type":"checkout.session.completed","latency_ms":0}
+.                                            22 / 22 (100%)
+
+Time: 00:00.098, Memory: 20.00 MB
+
+OK (22 tests, 70 assertions)

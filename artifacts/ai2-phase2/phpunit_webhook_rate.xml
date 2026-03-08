@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="KHM\Tests\Membership\StripeWebhookRateLimitTest" file="/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Membership/StripeWebhookRateLimitTest.php" tests="3" assertions="14" errors="0" warnings="0" failures="0" skipped="0" time="0.068236">
+    <testcase name="test_rate_limit_service_blocks_after_threshold_and_emits_alias_telemetry" class="KHM\Tests\Membership\StripeWebhookRateLimitTest" classname="KHM.Tests.Membership.StripeWebhookRateLimitTest" file="/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Membership/StripeWebhookRateLimitTest.php" line="28" assertions="6" time="0.033157"/>
+    <testcase name="test_invalid_signature_threshold_blocks_ip_and_emits_telemetry" class="KHM\Tests\Membership\StripeWebhookRateLimitTest" classname="KHM.Tests.Membership.StripeWebhookRateLimitTest" file="/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Membership/StripeWebhookRateLimitTest.php" line="54" assertions="5" time="0.000238"/>
+    <testcase name="test_handler_returns_429_after_rate_limit_threshold" class="KHM\Tests\Membership\StripeWebhookRateLimitTest" classname="KHM.Tests.Membership.StripeWebhookRateLimitTest" file="/Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/tests/Membership/StripeWebhookRateLimitTest.php" line="78" assertions="3" time="0.034842"/>
+  </testsuite>
+</testsuites>

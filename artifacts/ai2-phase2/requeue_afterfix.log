@@ -1,0 +1,36 @@
+KHM Marketing Suite initialized successfully
+[KHM Elementor] Widgets registered. Total widget types: 153
+[KHM GEO] AnswerCard block registered at /Users/krisoldland/Local Sites/touchpoint-template-remote/app/public/wp-content/plugins/khm-plugin/src/Blocks/answer-card
+[KHM GEO] Registering suggest plugin script: http://touchpoint-template-remote.local/wp-content/plugins/khm-plugin/src/Blocks/answer-card/build/suggest-plugin.js
+[KHM GEO] Asset data: Array
+(
+    [dependencies] => Array
+        (
+            [0] => react
+            [1] => wp-api-fetch
+            [2] => wp-blocks
+            [3] => wp-components
+            [4] => wp-data
+            [5] => wp-editor
+            [6] => wp-element
+            [7] => wp-i18n
+            [8] => wp-plugins
+            [9] => wp-primitives
+        )
+
+    [version] => 4d6ee66f92f71b991080
+)
+
+[KHM GEO] Suggest plugin assets registered successfully
+KHM Plugin Registry: Successfully registered plugin 'social-strip'
+Social Strip successfully registered with KHM Marketing Suite
+KHM SEO: init_components start.
+KHM SEO: GEO manager status: ready
+KHM SEO: Elementor integration disabled via KHM_SEO_DISABLE_ELEMENTOR.
+KHM membership security anomaly {"code":"checkout_tier_price_mismatch","message":"Checkout metadata tier\/price mismatch.","context":{"event_id":"evt_phase2_requeue_001","session_id":"cs_phase2_requeue_001","user_id":601,"tier_slug":"phase2-premium","stripe_price_id":"price_phase2_premium_monthly"}}
+KHM webhook webhook.security_anomaly {"code":"checkout_tier_price_mismatch","message":"Checkout metadata tier\/price mismatch.","context":{"event_id":"evt_phase2_requeue_001","session_id":"cs_phase2_requeue_001","user_id":601,"tier_slug":"phase2-premium","stripe_price_id":"price_phase2_premium_monthly"}}
+KHM webhook processing failed | event_id=evt_phase2_requeue_001 | type=checkout.session.completed | trace_id=e8e10ec8-0d2d-479f-ab27-b4b88e12554b | error=checkout.session.completed tier/price mismatch
+KHM webhook webhook.failed {"event_id":"evt_phase2_requeue_001","event_type":"checkout.session.completed","trace_id":"e8e10ec8-0d2d-479f-ab27-b4b88e12554b","error":"checkout.session.completed tier\/price mismatch"}
+requeue: event=evt_phase2_requeue_001 reconstructed=true attempts=1 reason=success
+{"status":"success","reason":"requeued","event_id":"evt_phase2_requeue_001","reconstructed":true,"attempts":1}
+Success: Requeued dead-letter event_id=evt_phase2_requeue_001

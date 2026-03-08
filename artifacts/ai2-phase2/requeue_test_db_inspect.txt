@@ -1,0 +1,11 @@
+*************************** 1. row ***************************
+  event_id: evt_phase2_requeue_001
+event_type: checkout.session.completed
+    status: processed
+  attempts: 1
+     notes: requeue success
+*************************** 1. row ***************************
+open_dlq_rows: 0
+*************************** 1. row ***************************
+resolved_dlq_rows: 1
+

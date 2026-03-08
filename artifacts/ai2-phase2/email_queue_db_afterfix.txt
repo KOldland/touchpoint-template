@@ -1,0 +1,24 @@
+*************************** 1. row ***************************
+             id: 8
+idempotency_key: evt_phase2_email_001:welcome
+         status: sent
+       attempts: 0
+      recipient: phase2-dedupe@example.com
+     created_at: 2026-03-08 01:02:56
+*************************** 1. row ***************************
+        Table: wp_khm_email_queue
+   Non_unique: 0
+     Key_name: uniq_email_idempotency
+ Seq_in_index: 1
+  Column_name: idempotency_key
+    Collation: A
+  Cardinality: 2
+     Sub_part: 191
+       Packed: NULL
+         Null: YES
+   Index_type: BTREE
+      Comment: 
+Index_comment: 
+      Visible: YES
+   Expression: NULL
+
