@@ -2004,6 +2004,7 @@ add_action('admin_menu', function() {
     add_submenu_page('editorial_planner', __('Past Sessions','khm-membership'), __('Past Sessions','khm-membership'), 'edit_posts', 'editorial_sessions', 'render_sessions_page');
     add_submenu_page('editorial_planner', __('Article Frameworks','khm-membership'), __('Article Frameworks','khm-membership'), 'edit_posts', 'editorial_frameworks', 'render_frameworks_page');
     add_submenu_page('editorial_planner', __('Editorial Calendar','khm-membership'), __('Editorial Calendar','khm-membership'), 'edit_posts', 'editorial_calendar', 'render_editorial_calendar_page');
+    add_submenu_page('editorial_planner', __('Personas','khm-membership'), __('Personas','khm-membership'), 'manage_options', 'editorial_preferences', 'render_editorial_preferences_page');
 });
 
 add_action('admin_menu', function() {
@@ -2178,6 +2179,40 @@ function render_editorial_calendar_page() {
         $version,
         true
     );
+}
+
+function render_editorial_preferences_page() {
+    if (!class_exists('Dual_GPT_Admin')) {
+        echo '<div class="wrap"><h1>Preferences</h1><p>Dual GPT admin is not available.</p></div>';
+        return;
+    }
+
+    if (defined('DUAL_GPT_PLUGIN_URL') && defined('DUAL_GPT_PLUGIN_VERSION')) {
+        wp_enqueue_script(
+            'dual-gpt-admin',
+            DUAL_GPT_PLUGIN_URL . 'admin/js/admin.js',
+            array('jquery'),
+            DUAL_GPT_PLUGIN_VERSION,
+            true
+        );
+
+        wp_enqueue_style(
+            'dual-gpt-admin',
+            DUAL_GPT_PLUGIN_URL . 'admin/css/admin.css',
+            array(),
+            DUAL_GPT_PLUGIN_VERSION
+        );
+
+        wp_localize_script('dual-gpt-admin', 'dualGptAdmin', array(
+            'nonce' => wp_create_nonce('dual_gpt_admin_nonce'),
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'restUrl' => rest_url('dual-gpt/v1/'),
+            'modelDefaults' => class_exists('Dual_GPT_Model_Config') ? (new Dual_GPT_Model_Config())->get_default_map() : array(),
+        ));
+    }
+
+    $dual_gpt_admin = new Dual_GPT_Admin();
+    $dual_gpt_admin->presets_page();
 }
 
 // Dashboard Widgets

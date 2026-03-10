@@ -251,6 +251,9 @@ class Dual_GPT_Planner_Orchestrator {
         $lines[] = 'Focus level: ' . intval($focus_level) . ' (0 = general, 100 = focused).';
         $lines[] = 'Analyze the supplied research inputs (SERP snapshots, keyword suggestions, and trend notes) to extract ' . $focus_profile['trend_range'] . ' distinct trends shaping this topic.';
         $lines[] = 'Enforce 36-month recency window: extract publication dates from citation metadata and reject any sources older than 36 months. Do not accept article titles as publication dates; verify against schema metadata (datePublished, article:published_time, etc.).';
+        $lines[] = 'Carry forward source-mix requirements for validation: at least 1 academic journal, 1 analyst report, 1 industry media source, and 1 case study.';
+        $lines[] = 'Citations must be unique and no organization may appear more than twice across the response.';
+        $lines[] = 'Surface at least one trend where strategy failed, adoption lagged, or outcomes were mixed.';
         $lines[] = 'For each trend, include: 2–4 insight_points; a clear why_it_matters; 2–3 editorial_angles; and 2–4 citations sourced only from the supplied inputs.';
         $lines[] = 'Apply only to: Field Service, Spare Parts, B2B E-Commerce, B2B Pricing, Servitization, or Aftermarket Strategy. For e-commerce and pricing, restrict to B2B manufacturing.';
         $lines[] = 'Return at least 12 candidate_keywords derived from the supplied inputs. Do not leave candidate_keywords empty.';
@@ -349,6 +352,11 @@ class Dual_GPT_Planner_Orchestrator {
         $lines[] = 'Deliver editorially actionable insights designed specifically for article development—not long-form reports or white papers.';
         $lines[] = 'Focus on producing insights that can support a single article per topic, with clear narrative angles, recent data points, and sourceable quotes.';
         $lines[] = 'Keep each key_finding under 35 words. Limit to 3–5 citations per topic.';
+        $lines[] = 'Enforce source mix across the full response: include at least 1 academic journal, 1 analyst report, 1 industry media source, and 1 case-study citation.';
+        $lines[] = 'Citations must be unique and no organization may appear more than twice across the full response.';
+        $lines[] = 'Across prioritized_topics, include perspective toggling where evidence allows: executive viewpoint, frontline/field viewpoint, and vendor/analyst viewpoint.';
+        $lines[] = 'Include at least one topic where failure, adoption lag, or mixed outcomes are explicit.';
+        $lines[] = 'Leave at least one insight unresolved or in productive tension; avoid fully tidy resolution.';
         $lines[] = '';
         $lines[] = 'Return ONLY valid JSON. Do not include commentary.';
         $lines[] = 'Schema (JSON):';
@@ -400,6 +408,9 @@ class Dual_GPT_Planner_Orchestrator {
         $lines[] = 'Your job is to validate, refine, or eliminate topics based on accuracy, authority, and editorial confidence.';
         $lines[] = 'Stress-test Phase 3 topics against authoritative, recent sources. Attach only citations that are safe to quote.';
         $lines[] = 'Where applicable, map back to keyword signals identified in Phase 2 to preserve strategic alignment.';
+        $lines[] = 'Enforce source mix and citation hygiene in validated_topics: at least 1 academic, 1 analyst, 1 industry media, and 1 case-study citation across the response; citations must be unique; no organization may appear more than twice.';
+        $lines[] = 'Preserve perspective toggling where available (executive, frontline/field, vendor/analyst) and keep at least one unresolved tension.';
+        $lines[] = 'Ensure at least one validated topic captures failure, adoption lag, or mixed outcomes grounded in sources.';
         $lines[] = 'Return ONLY valid JSON. Do not include commentary or apologies.';
         $lines[] = 'Schema: {';
         $lines[] = '"validation_summary":"",';

@@ -510,7 +510,7 @@ class Dual_GPT_DB_Handler {
         $defaults = array(
             array(
                 'id' => 'research-default',
-                'name' => 'Research Assistant',
+                'name' => 'Generic',
                 'role' => 'research',
                 'system_prompt' => 'You are an expert research assistant. Use available tools to gather comprehensive, accurate information. Always cite sources and provide evidence for your findings.',
                 'default_model' => 'gpt-4',
@@ -565,7 +565,7 @@ class Dual_GPT_DB_Handler {
             array(
                 'id' => 'fg-framework-generator',
                 'name' => 'Framework Generator',
-                'role' => 'research',
+                'role' => 'framework',
                 'system_prompt' => 'You are the Framework Generator. Produce a Research Brief from the provided article idea and constraints. Follow the Research Process:
 Phase 1: Foundational Discovery — source 12–16 unique articles across diverse domains (no duplicate domains). Group findings into strategic insight areas. Do not output raw URLs in Phase 1 JSON (persist them separately).
 Phase 2: Deep Dive & Validation — validate 6–8 citations including at least 1 academic journal, 1 analyst report, 1 industry media source, and 1 case study. Use fetch_url and CrossRef/OpenAlex to verify APA metadata. If APA metadata can\'t be verified, set apa_string: \'details_unavailable\'. No invented metadata. CRITICAL: Extract publication dates from schema metadata (datePublished, article:published_time, etc.) and reject any citations published more than 36 months ago.
@@ -583,7 +583,11 @@ Phase 3: Synthesis — produce the final Research Brief JSON with required secti
 
         foreach ($defaults as $preset) {
             // Check if preset already exists
-            if (!$this->get_preset($preset['id'])) {
+            if ($this->get_preset($preset['id'])) {
+                // Update existing preset with new values (for renames, prompt updates, etc.)
+                $this->update_preset($preset['id'], $preset);
+            } else {
+                // Insert new preset if it doesn't exist
                 $this->insert_preset($preset);
             }
         }

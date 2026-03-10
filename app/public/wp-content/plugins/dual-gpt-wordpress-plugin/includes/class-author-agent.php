@@ -604,18 +604,18 @@ class Dual_GPT_Author_Agent {
      */
     private function build_draft_system_prompt($core_settings) {
         $brand_profile = $core_settings['brand_profile'] ?? 'Brand A (FSI)';
-        $em_dash_guidance = $this->get_em_dash_guidance($brand_profile);
 
         return implode("\n", array(
             'You are the Author Agent. You execute an approved editorial plan and framework without adding new strategy, SEO, or distribution logic.',
             'You must not introduce new citations, entities, or claims beyond provided materials.',
             'Do not modify the topic scope or angle.',
-            'Persona: Experienced Analyst / Senior Journalist.',
+            'Persona: Reporter-only stance. Write as a senior industry journalist/analyst-reporter using sourced observation, not personal implementation experience.',
             'Industry focus: ' . $core_settings['industry_focus'],
             'Audience tier: ' . $core_settings['audience_tier'],
             'Risk tolerance: ' . $core_settings['risk_tolerance'],
             'Brand profile: ' . $brand_profile,
-            $em_dash_guidance,
+            'No em dashes at all.',
+            'No first-person narrative. Any memory cue must be attributed recollection from interviewees, participants, or published sources.',
             'No tidy conclusions. No omniscient voice. Allow tonal variation and friction.',
             'Output must be JSON only (no markdown or commentary).',
         ));
@@ -665,13 +665,19 @@ class Dual_GPT_Author_Agent {
         $prompt[] = '- No listicle framing.';
         $prompt[] = '- No punchline one-liners.';
         $prompt[] = '- No over-smoothed transitions.';
-        $prompt[] = '- Em-dash usage per brand profile: ' . $this->get_em_dash_guidance($core_settings['brand_profile'] ?? 'Brand A (FSI)');
+        $prompt[] = '- No em dashes at all (do not use “—” or “--”).';
+        $prompt[] = '- Reporter-only distance: do not use first-person narration or practitioner memory.';
+        $prompt[] = '- Memory cues must be attributed recollection from sources/interviewees, never "I" statements.';
         $prompt[] = '- Every paragraph: at least one sentence >20 words and one sentence <8 words.';
         $prompt[] = '- At least one contradiction or self-correction per 500 words.';
         $prompt[] = '- Paragraphs broken by thought, not template.';
         $prompt[] = '- Preserve ambiguity, temporal drift, unresolved tension.';
         $prompt[] = '- Observational, reported, investigative stance.';
+        $prompt[] = '- Perspective toggling: include at least two perspectives where evidence allows (executive, frontline/field, vendor/analyst).';
         $prompt[] = '- No tidy conclusions or definitive resolution.';
+        $prompt[] = '- Subheading discipline: maximum 3 headings; headings must be descriptive/situational and must not summarize insights.';
+        $prompt[] = '- Avoid these phrases: "not just X, but Y", "it\'s not about X, it\'s about Y", "more than just X", "in today\'s world", "delve into", "unpack", "crucially".';
+        $prompt[] = '- If a sentence follows "not X but Y", rewrite as a direct statement (e.g., "The issue is systemic and affects the whole process.").';
         $prompt[] = '- No fabricated data, names, or quotes.';
         $prompt[] = '- No inferred academic claims.';
         $prompt[] = '- All claims must be attributable or framed with humility.';
@@ -790,9 +796,8 @@ class Dual_GPT_Author_Agent {
         $word_count = str_word_count($text);
 
         $em_dash_count = preg_match_all('/\x{2014}|--/u', $text);
-        $em_dash_limit = $this->get_em_dash_limit($core_settings['brand_profile'] ?? 'Brand A (FSI)', $word_count);
-        if ($em_dash_limit > 0 && $em_dash_count > $em_dash_limit) {
-            $warnings[] = sprintf('Em dash usage exceeds guidance (%d used, max %d for this length).', $em_dash_count, $em_dash_limit);
+        if ($em_dash_count > 0) {
+            $warnings[] = sprintf('Em dash usage is not allowed (%d found).', $em_dash_count);
         }
 
         $paragraphs = $this->extract_paragraphs_from_blocks($blocks);
@@ -807,6 +812,20 @@ class Dual_GPT_Author_Agent {
             $warnings[] = sprintf('Paragraph sentence-length constraint failed in %d paragraph(s).', $violations);
         }
 
+        $headings = $this->extract_headings_from_blocks($blocks);
+        if (count($headings) > 3) {
+            $warnings[] = sprintf('Subheading limit exceeded (%d found, max 3).', count($headings));
+        }
+        $summary_heading_count = 0;
+        foreach ($headings as $heading) {
+            if ($this->contains_rhetorical_binary($heading) || $this->contains_summary_heading($heading)) {
+                $summary_heading_count++;
+            }
+        }
+        if ($summary_heading_count > 0) {
+            $warnings[] = sprintf('Subheading style violation in %d heading(s): avoid summary headings and rhetorical binaries.', $summary_heading_count);
+        }
+
         $required_contradictions = $this->get_required_contradictions($word_count);
         $contradiction_count = $this->count_contradictions($text);
         if ($required_contradictions > 0 && $contradiction_count < $required_contradictions) {
@@ -818,6 +837,15 @@ class Dual_GPT_Author_Agent {
         }
         if ($this->contains_listicle_framing($text)) {
             $warnings[] = 'Listicle-style framing detected.';
+        }
+        if (!$this->has_minimum_perspective_coverage($text, 2)) {
+            $warnings[] = 'Perspective coverage is thin (target at least two viewpoints: executive, frontline/field, vendor/analyst).';
+        }
+        if ($this->contains_first_person_voice($text)) {
+            $warnings[] = 'First-person narration detected (reporter-only distance required).';
+        }
+        if ($this->contains_banned_writer_phrases($text)) {
+            $warnings[] = 'Banned phrasing detected (use direct statements, avoid heuristic phrases).';
         }
         if ($this->has_tidy_conclusion($blocks)) {
             $warnings[] = 'Draft may include a tidy conclusion (avoid definitive wrap-ups).';
@@ -1041,29 +1069,6 @@ class Dual_GPT_Author_Agent {
     }
 
     /**
-     * Em dash guidance text
-     */
-    private function get_em_dash_guidance($brand_profile) {
-        if (stripos($brand_profile, 'brand b') !== false) {
-            return 'Em-dash usage: max 1 per 300+ words (Brand B).';
-        }
-
-        return 'Em-dash usage: max 1 per 1500 words (Brand A).';
-    }
-
-    /**
-     * Em dash limit count based on brand and length
-     */
-    private function get_em_dash_limit($brand_profile, $word_count) {
-        if ($word_count <= 0) {
-            return 0;
-        }
-
-        $limit = (stripos($brand_profile, 'brand b') !== false) ? 300 : 1500;
-        return (int) ceil($word_count / $limit);
-    }
-
-    /**
      * Extract paragraph text from blocks
      */
     private function extract_paragraphs_from_blocks($blocks) {
@@ -1075,6 +1080,20 @@ class Dual_GPT_Author_Agent {
         }
 
         return $paragraphs;
+    }
+
+    /**
+     * Extract heading text from blocks
+     */
+    private function extract_headings_from_blocks($blocks) {
+        $headings = array();
+        foreach ($blocks as $block) {
+            if (($block['type'] ?? '') === 'heading' && !empty($block['content'])) {
+                $headings[] = wp_strip_all_tags((string) $block['content']);
+            }
+        }
+
+        return $headings;
     }
 
     /**
@@ -1167,10 +1186,53 @@ class Dual_GPT_Author_Agent {
     }
 
     /**
+     * Detect first-person narration markers
+     */
+    private function contains_first_person_voice($text) {
+        return preg_match('/\b(i|me|my|mine|myself|we|us|our|ours|ourselves)\b/i', $text) === 1;
+    }
+
+    /**
+     * Detect banned heuristic phrasing
+     */
+    private function contains_banned_writer_phrases($text) {
+        return preg_match('/\bnot\s+just\b[^.]{0,80}\bbut\b|\bit\'s\s+not\s+about\b[^.]{0,80}\bit\'s\s+about\b|\bmore\s+than\s+just\b|\bin\s+today\'s\s+world\b|\bdelve\s+into\b|\bunpack\b|\bcrucially\b/i', $text) === 1;
+    }
+
+    /**
      * Detect listicle framing
      */
     private function contains_listicle_framing($text) {
         return preg_match('/\b(top|best)\s+\d+\b|\b\d+\s+(ways|reasons|tips|steps)\b/i', $text) === 1;
+    }
+
+    /**
+     * Detect summary-style headings that over-resolve
+     */
+    private function contains_summary_heading($text) {
+        return preg_match('/\b(summary|conclusion|key\s+takeaways|takeaways|final\s+thoughts|in\s+summary|what\s+this\s+means)\b/i', $text) === 1;
+    }
+
+    /**
+     * Check if text covers at least N perspective families
+     */
+    private function has_minimum_perspective_coverage($text, $min_groups = 2) {
+        $lower = strtolower((string) $text);
+        $groups_hit = 0;
+
+        $patterns = array(
+            '/\b(executive|leadership|board|c[- ]suite|chief|vp|director)\b/i',
+            '/\b(field|frontline|technician|operator|planner|manager|dispatch)\b/i',
+            '/\b(vendor|supplier|analyst|consultancy|consulting|partner)\b/i',
+        );
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $lower) === 1) {
+                $groups_hit++;
+            }
+        }
+
+        return $groups_hit >= $min_groups;
     }
 
     /**

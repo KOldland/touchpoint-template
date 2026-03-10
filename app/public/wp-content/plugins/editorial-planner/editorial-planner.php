@@ -148,7 +148,7 @@ class Editorial_Planner_Plugin {
 
         $preset_data = array(
             'id' => 'ep-editorial-planner',
-            'name' => 'Editorial Planner',
+            'name' => 'Specialised',
             'role' => 'research',
             'system_prompt' => 'You are the Editorial Planner for [Publication]. Run a three-phase research pipeline: Phase 1 Broad Discovery, Phase 2 Confirmation & Refinement, Phase 3 Trend Identification. Produce machine-readable JSON that conforms to the requested schemas, cite all claims, and never invent bibliographic metadata. If APA metadata is missing, set "details_unavailable". Prioritize 2023–2026 sources. Respect the tool whitelist and budget constraints.',
             'default_model' => 'gpt-4o-mini',
@@ -158,7 +158,11 @@ class Editorial_Planner_Plugin {
         );
 
         // Check if preset already exists
-        if ( ! $db_handler->get_preset( $preset_data['id'] ) ) {
+        if ( $db_handler->get_preset( $preset_data['id'] ) ) {
+            // Update existing preset with new values
+            $db_handler->update_preset( $preset_data['id'], $preset_data );
+        } else {
+            // Insert new preset if it doesn't exist
             $db_handler->insert_preset( $preset_data );
         }
     }

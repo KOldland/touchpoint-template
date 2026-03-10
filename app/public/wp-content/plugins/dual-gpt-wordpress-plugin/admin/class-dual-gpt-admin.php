@@ -541,7 +541,7 @@ class Dual_GPT_Admin {
 
         ?>
         <div class="wrap">
-            <h1>Dual-GPT Presets</h1>
+            <h1>Personas</h1>
 
             <div style="margin-bottom: 20px;">
                 <button id="add-preset" class="button button-primary">Add New Preset</button>

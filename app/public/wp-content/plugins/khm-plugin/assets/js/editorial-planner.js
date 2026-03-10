@@ -1861,19 +1861,29 @@ const EditorialPlannerApp = () => {
                               wp.element.createElement(
                                   'p',
                                   { style: { margin: '6px 0 8px', color: '#50575e' } },
-                                  `Current setting: ${focusLabel} (${focusLevel})`
+                                  `Current setting: ${focusLabel}`
                               ),
-                              wp.element.createElement(RangeControl, {
-                                  value: focusLevel,
-                                  min: 0,
-                                  max: 100,
-                                  step: 5,
-                                  onChange: (value) => {
-                                      setFocusDirty(true);
-                                      setFocusLevel(value);
-                                  },
-                                  help: 'Lower = broader coverage; higher = tighter focus.',
-                              }),
+                              wp.element.createElement(
+                                  'style',
+                                  null,
+                                  '.focus-level-slider .components-range-control__number-field { display: none !important; } .focus-level-slider input[type="number"] { display: none !important; }'
+                              ),
+                              wp.element.createElement(
+                                  'div',
+                                  { style: { position: 'relative' } },
+                                  wp.element.createElement(RangeControl, {
+                                      value: focusLevel,
+                                      min: 0,
+                                      max: 100,
+                                      step: 5,
+                                      className: 'focus-level-slider',
+                                      onChange: (value) => {
+                                          setFocusDirty(true);
+                                          setFocusLevel(value);
+                                      },
+                                      help: 'Lower = broader coverage; higher = tighter focus.',
+                                  })
+                              ),
                               wp.element.createElement(
                                   'p',
                                   { style: { margin: '6px 0 0', fontSize: '12px', color: '#50575e' } },
@@ -2508,19 +2518,29 @@ const EditorialPlannerApp = () => {
                                   wp.element.createElement(
                                       'p',
                                       { style: { margin: '6px 0 8px', color: '#50575e' } },
-                                      `Current setting: ${focusLabel} (${focusLevel})`
+                                      `Current setting: ${focusLabel}`
                                   ),
-                                  wp.element.createElement(RangeControl, {
-                                      value: focusLevel,
-                                      min: 0,
-                                      max: 100,
-                                      step: 5,
-                                      onChange: (value) => {
-                                          setFocusDirty(true);
-                                          setFocusLevel(value);
-                                      },
-                                      help: 'Lower = broader coverage; higher = tighter focus.',
-                                  }),
+                                  wp.element.createElement(
+                                      'style',
+                                      null,
+                                      '.focus-level-slider .components-range-control__number-field { display: none !important; } .focus-level-slider input[type="number"] { display: none !important; }'
+                                  ),
+                                  wp.element.createElement(
+                                      'div',
+                                      { style: { position: 'relative' } },
+                                      wp.element.createElement(RangeControl, {
+                                          value: focusLevel,
+                                          min: 0,
+                                          max: 100,
+                                          step: 5,
+                                          className: 'focus-level-slider',
+                                          onChange: (value) => {
+                                              setFocusDirty(true);
+                                              setFocusLevel(value);
+                                          },
+                                          help: 'Lower = broader coverage; higher = tighter focus.',
+                                      })
+                                  ),
                                   wp.element.createElement(
                                       'p',
                                       { style: { margin: '6px 0 0', fontSize: '12px', color: '#50575e' } },
