@@ -606,16 +606,16 @@ class Dual_GPT_Author_Agent {
         $brand_profile = $core_settings['brand_profile'] ?? 'Brand A (FSI)';
 
         return implode("\n", array(
-            'You are the Author Agent. You execute an approved editorial plan and framework without adding new strategy, SEO, or distribution logic.',
+            'You are the Author Agent. Execute the approved plan/framework only; do not add strategy, SEO, or distribution logic.',
             'You must not introduce new citations, entities, or claims beyond provided materials.',
             'Do not modify the topic scope or angle.',
-            'Persona: Reporter-only stance. Write as a senior industry journalist/analyst-reporter using sourced observation, not personal implementation experience.',
+            'Persona: reporter-only senior journalist/analyst voice grounded in sourced observation (not practitioner memory).',
             'Industry focus: ' . $core_settings['industry_focus'],
             'Audience tier: ' . $core_settings['audience_tier'],
             'Risk tolerance: ' . $core_settings['risk_tolerance'],
             'Brand profile: ' . $brand_profile,
             'No em dashes at all.',
-            'No first-person narrative. Any memory cue must be attributed recollection from interviewees, participants, or published sources.',
+            'No first-person narration. Any memory cue must be attributed recollection from interviewees/participants/published sources.',
             'No tidy conclusions. No omniscient voice. Allow tonal variation and friction.',
             'Output must be JSON only (no markdown or commentary).',
         ));
@@ -666,18 +666,18 @@ class Dual_GPT_Author_Agent {
         $prompt[] = '- No punchline one-liners.';
         $prompt[] = '- No over-smoothed transitions.';
         $prompt[] = '- No em dashes at all (do not use “—” or “--”).';
-        $prompt[] = '- Reporter-only distance: do not use first-person narration or practitioner memory.';
-        $prompt[] = '- Memory cues must be attributed recollection from sources/interviewees, never "I" statements.';
+        $prompt[] = '- Reporter-only distance: no first-person narration or practitioner memory.';
+        $prompt[] = '- Memory cues must be attributed recollection from sources/interviewees; never "I" statements.';
         $prompt[] = '- Every paragraph: at least one sentence >20 words and one sentence <8 words.';
         $prompt[] = '- At least one contradiction or self-correction per 500 words.';
         $prompt[] = '- Paragraphs broken by thought, not template.';
         $prompt[] = '- Preserve ambiguity, temporal drift, unresolved tension.';
         $prompt[] = '- Observational, reported, investigative stance.';
-        $prompt[] = '- Perspective toggling: include at least two perspectives where evidence allows (executive, frontline/field, vendor/analyst).';
+        $prompt[] = '- Perspective toggling: include at least two viewpoints where evidence allows (executive, frontline/field, vendor/analyst).';
         $prompt[] = '- No tidy conclusions or definitive resolution.';
-        $prompt[] = '- Subheading discipline: maximum 3 headings; headings must be descriptive/situational and must not summarize insights.';
+        $prompt[] = '- Subheading discipline: maximum 3 headings; descriptive/situational only; no summary headings.';
         $prompt[] = '- Avoid these phrases: "not just X, but Y", "it\'s not about X, it\'s about Y", "more than just X", "in today\'s world", "delve into", "unpack", "crucially".';
-        $prompt[] = '- If a sentence follows "not X but Y", rewrite as a direct statement (e.g., "The issue is systemic and affects the whole process.").';
+        $prompt[] = '- Rewrite any "not X but Y" structure as a direct statement (e.g., "The issue is systemic and affects the whole process.").';
         $prompt[] = '- No fabricated data, names, or quotes.';
         $prompt[] = '- No inferred academic claims.';
         $prompt[] = '- All claims must be attributable or framed with humility.';
