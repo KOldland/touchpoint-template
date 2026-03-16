@@ -5,7 +5,7 @@
  * Description: Improve your website’s accessibility with ease. Customize capabilities such as text resizing, contrast modes, link highlights, and easily generate an accessibility statement to demonstrate your commitment to inclusivity.
  * Author: Elementor.com
  * Author URI: https://elementor.com/
- * Version: 4.0.3
+ * Version: 4.1.0
  * Text Domain: pojo-accessibility
  */
 
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Legacy
 define( 'POJO_A11Y_CUSTOMIZER_OPTIONS', 'pojo_a11y_customizer_options' );
-define( 'EA11Y_VERSION', '4.0.3' );
+define( 'EA11Y_VERSION', '4.1.0' );
 define( 'EA11Y_MAIN_FILE', __FILE__ );
 define( 'EA11Y_BASE', plugin_basename( EA11Y_MAIN_FILE ) );
 define( 'EA11Y_PATH', plugin_dir_path( __FILE__ ) );
@@ -79,26 +79,8 @@ final class Pojo_Accessibility {
 	}
 
 	private function __construct() {
-		// Load Composer autoloader when present. Some local restores can miss vendor subpackages.
-		$vendor_autoload = EA11Y_PATH . 'vendor/autoload.php';
-		$vendor_runner   = EA11Y_PATH . 'vendor/elementor/wp-one-package/runner.php';
-
-		if ( file_exists( $vendor_autoload ) && file_exists( $vendor_runner ) ) {
-			require_once EA11Y_PATH . 'vendor/autoload.php';
-		} else {
-			add_action(
-				'admin_notices',
-				static function () {
-					if ( ! current_user_can( 'manage_options' ) ) {
-						return;
-					}
-
-					echo '<div class="notice notice-warning"><p>';
-					echo esc_html__( 'Ally (Pojo Accessibility): Composer dependencies are incomplete. Running in limited mode.', 'pojo-accessibility' );
-					echo '</p></div>';
-				}
-			);
-		}
+		// Load Composer autoloader
+		require_once EA11Y_PATH . 'vendor/autoload.php';
 
 		// Init Plugin
 		add_action( 'plugins_loaded', [ $this, 'init' ] );

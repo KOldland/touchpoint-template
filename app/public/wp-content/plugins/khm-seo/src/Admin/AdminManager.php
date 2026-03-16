@@ -46,6 +46,7 @@ class AdminManager {
         // Meta boxes for posts and pages
         add_action( 'add_meta_boxes', array( $this, 'add_meta_boxes' ) );
         add_action( 'add_meta_boxes', array( $this, 'add_boost_visibility_meta_box' ) );
+        add_action( 'edit_form_after_title', array( $this, 'render_editor_score_panel' ) );
         add_action( 'save_post', array( $this, 'save_post_meta' ) );
         
         // Term meta for categories and tags
@@ -173,12 +174,12 @@ class AdminManager {
 
         $post_types = get_post_types( array( 'public' => true ), 'objects' );
         $default_post_type = array_key_first( $post_types );
-        $selected_type = isset( $_GET['post_type'] ) ? sanitize_key( $_GET['post_type'] ) : $default_post_type;
+        $selected_type = isset( $_GET['khm_post_type'] ) ? sanitize_key( $_GET['khm_post_type'] ) : $default_post_type;
         if ( empty( $selected_type ) || ! isset( $post_types[ $selected_type ] ) ) {
             $selected_type = $default_post_type;
         }
 
-        $post_id = isset( $_GET['post_id'] ) ? (int) $_GET['post_id'] : 0;
+        $post_id = isset( $_GET['khm_post_id'] ) ? (int) $_GET['khm_post_id'] : 0;
         $selected_post = $post_id ? get_post( $post_id ) : null;
         if ( $selected_post && 'publish' !== $selected_post->post_status ) {
             $selected_post = null;
@@ -192,16 +193,36 @@ class AdminManager {
             'order' => 'DESC',
         ) );
 
-        $social_url = $selected_post ? admin_url( 'admin.php?page=khm-seo-social-preview&post_type=' . $selected_type . '&post_id=' . $selected_post->ID ) : '';
-        $geo_url = $selected_post ? admin_url( 'admin.php?page=khm-seo-geo-post&post_type=' . $selected_type . '&post_id=' . $selected_post->ID ) : '';
-        $health_url = $selected_post ? admin_url( 'admin.php?page=khm-seo-post-health&post_type=' . $selected_type . '&post_id=' . $selected_post->ID ) : '';
+        $social_url = $selected_post ? admin_url( 'admin.php?page=khm-seo-social-preview&khm_post_type=' . $selected_type . '&khm_post_id=' . $selected_post->ID ) : '';
+        $geo_url = $selected_post ? admin_url( 'admin.php?page=khm-seo-geo-post&khm_post_type=' . $selected_type . '&khm_post_id=' . $selected_post->ID ) : '';
+        $health_url = $selected_post ? admin_url( 'admin.php?page=khm-seo-post-health&khm_post_type=' . $selected_type . '&khm_post_id=' . $selected_post->ID ) : '';
 
+        $dep_smma   = class_exists( 'KH_SMMA\Services\SmmaGenerator' );
+        $dep_agent  = class_exists( 'KHM_SEO_AGENT\API\Rest_Api' );
+        $dep_adman  = function_exists( 'kh_ad_manager_get_sponsor_meta' );
         ?>
         <div class="wrap">
             <h1><?php esc_html_e( 'Boost Visibility', 'khm-seo' ); ?></h1>
             <p class="description">
                 <?php esc_html_e( 'Publish first, then manage GEO, social previews, and post health from here.', 'khm-seo' ); ?>
             </p>
+
+            <?php if ( ! $dep_smma || ! $dep_agent || ! $dep_adman ) : ?>
+            <div class="notice notice-warning inline" style="padding:8px 12px;margin-bottom:16px;">
+                <strong><?php esc_html_e( 'Plugin bundle status', 'khm-seo' ); ?></strong>
+                <ul style="margin:.4em 0 0 1em;list-style:disc;">
+                    <?php if ( ! $dep_smma ) : ?>
+                    <li><?php esc_html_e( 'KH SMMA — inactive. Social variant generation and approval workflows unavailable.', 'khm-seo' ); ?></li>
+                    <?php endif; ?>
+                    <?php if ( ! $dep_agent ) : ?>
+                    <li><?php esc_html_e( 'KHM SEO Agent — inactive. AI keyword analysis unavailable.', 'khm-seo' ); ?></li>
+                    <?php endif; ?>
+                    <?php if ( ! $dep_adman ) : ?>
+                    <li><?php esc_html_e( 'KH Ad Manager — inactive. Sponsor name resolution unavailable.', 'khm-seo' ); ?></li>
+                    <?php endif; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
 
             <form method="get">
                 <input type="hidden" name="page" value="khm-seo-boost-visibility" />
@@ -212,7 +233,7 @@ class AdminManager {
                                 <label for="khm-boost-post-type"><?php esc_html_e( 'Content Type', 'khm-seo' ); ?></label>
                             </th>
                             <td>
-                                <select id="khm-boost-post-type" name="post_type">
+                                <select id="khm-boost-post-type" name="khm_post_type">
                                     <?php foreach ( $post_types as $type_slug => $type_obj ) : ?>
                                         <option value="<?php echo esc_attr( $type_slug ); ?>" <?php selected( $selected_type, $type_slug ); ?>>
                                             <?php echo esc_html( $type_obj->labels->singular_name ); ?>
@@ -226,7 +247,7 @@ class AdminManager {
                                 <label for="khm-boost-post-id"><?php esc_html_e( 'Published Item', 'khm-seo' ); ?></label>
                             </th>
                             <td>
-                                <select id="khm-boost-post-id" name="post_id">
+                                <select id="khm-boost-post-id" name="khm_post_id">
                                     <option value="0"><?php esc_html_e( 'Select a published item...', 'khm-seo' ); ?></option>
                                     <?php foreach ( $posts as $post_item ) : ?>
                                         <option value="<?php echo esc_attr( $post_item->ID ); ?>" <?php selected( $selected_post && $selected_post->ID === $post_item->ID ); ?>>
@@ -263,10 +284,14 @@ class AdminManager {
                     <tbody>
                         <?php foreach ( $posts as $post_item ) : ?>
                             <?php
-                            $seo_score = (int) get_post_meta( $post_item->ID, '_khm_seo_score', true );
-                            $geo_score = (int) get_post_meta( $post_item->ID, '_khm_geo_score', true );
+                            $score_snapshot = $this->get_post_score_snapshot( $post_item->ID );
+                            $seo_score = $score_snapshot['seo'];
+                            $geo_score = $score_snapshot['geo'];
                             $geo_policy = '';
+                            $policy_sponsor_id = 0;
                             $sponsor_name = '';
+                            $summary_source = $post_item->post_excerpt ? $post_item->post_excerpt : $post_item->post_content;
+                            $post_summary = wp_trim_words( wp_strip_all_tags( $summary_source ), 24, '...' );
 
                             // Get phase information for current user
                             $phase_data = array(
@@ -275,8 +300,8 @@ class AdminManager {
                                 'color' => '#0073aa',
                             );
 
-                            if ( class_exists( 'KH_SMMA\\Services\\PhaseEngine' ) ) {
-                                $phase_engine = new \KH_SMMA\Services\PhaseEngine();
+                            if ( class_exists( 'KH_SMMA\\Services\\PhaseEngine' ) && isset( $GLOBALS['wpdb'] ) && $GLOBALS['wpdb'] instanceof \wpdb ) {
+                                $phase_engine = new \KH_SMMA\Services\PhaseEngine( $GLOBALS['wpdb'] );
                                 $user_phase = $phase_engine->get_user_phase( get_current_user_id() );
                                 if ( is_array( $user_phase ) && ! empty( $user_phase['assigned_phase'] ) ) {
                                     $phase_data['phase'] = $user_phase['assigned_phase'];
@@ -299,6 +324,7 @@ class AdminManager {
                                     $policy = $geo_manager->getSponsorPolicyForPost( $post_item->ID, 'global' );
                                     if ( is_array( $policy ) ) {
                                         $geo_policy = $policy['policy'] ?? '';
+                                        $policy_sponsor_id = ! empty( $policy['sponsor_id'] ) ? (int) $policy['sponsor_id'] : 0;
                                         if ( ! empty( $policy['sponsor_id'] ) && function_exists( 'kh_ad_manager_get_sponsor_meta' ) ) {
                                             $sponsor_meta = kh_ad_manager_get_sponsor_meta( (int) $policy['sponsor_id'] );
                                             $sponsor_name = $sponsor_meta['name'] ?? '';
@@ -357,13 +383,23 @@ class AdminManager {
                                         class="button khm-smma-promote-btn"
                                         data-post-id="<?php echo esc_attr( $post_item->ID ); ?>"
                                         data-post-title="<?php echo esc_attr( $post_item->post_title ); ?>"
+                                        data-post-summary="<?php echo esc_attr( $post_summary ); ?>"
                                         data-phase="<?php echo esc_attr( $phase_data['phase'] ); ?>"
+                                        data-sponsor-id="<?php echo esc_attr( $policy_sponsor_id ); ?>"
+                                        data-sponsor-policy="<?php echo esc_attr( $geo_policy ); ?>"
+                                        data-post-url="<?php echo esc_url( get_permalink( $post_item ) ); ?>"
                                     >
                                         <?php esc_html_e( 'Promote', 'khm-seo' ); ?>
                                     </button>
                                     <button
                                         class="button khm-smma-boost-btn"
                                         data-post-id="<?php echo esc_attr( $post_item->ID ); ?>"
+                                        data-post-title="<?php echo esc_attr( $post_item->post_title ); ?>"
+                                        data-post-summary="<?php echo esc_attr( $post_summary ); ?>"
+                                        data-phase="<?php echo esc_attr( $phase_data['phase'] ); ?>"
+                                        data-sponsor-id="<?php echo esc_attr( $policy_sponsor_id ); ?>"
+                                        data-sponsor-policy="<?php echo esc_attr( $geo_policy ); ?>"
+                                        data-post-url="<?php echo esc_url( get_permalink( $post_item ) ); ?>"
                                     >
                                         <?php esc_html_e( 'Boost', 'khm-seo' ); ?>
                                     </button>
@@ -532,12 +568,12 @@ class AdminManager {
 
         $post_types = get_post_types( array( 'public' => true ), 'objects' );
         $default_post_type = array_key_first( $post_types );
-        $selected_type = isset( $_GET['post_type'] ) ? sanitize_key( $_GET['post_type'] ) : $default_post_type;
+        $selected_type = isset( $_GET['khm_post_type'] ) ? sanitize_key( $_GET['khm_post_type'] ) : $default_post_type;
         if ( empty( $selected_type ) || ! isset( $post_types[ $selected_type ] ) ) {
             $selected_type = $default_post_type;
         }
 
-        $post_id = isset( $_GET['post_id'] ) ? (int) $_GET['post_id'] : 0;
+        $post_id = isset( $_GET['khm_post_id'] ) ? (int) $_GET['khm_post_id'] : 0;
         $selected_post = $post_id ? get_post( $post_id ) : null;
         if ( $selected_post && 'publish' !== $selected_post->post_status ) {
             $selected_post = null;
@@ -567,7 +603,7 @@ class AdminManager {
                                 <label for="khm-geo-post-type"><?php esc_html_e( 'Content Type', 'khm-seo' ); ?></label>
                             </th>
                             <td>
-                                <select id="khm-geo-post-type" name="post_type">
+                                <select id="khm-geo-post-type" name="khm_post_type">
                                     <?php foreach ( $post_types as $type_slug => $type_obj ) : ?>
                                         <option value="<?php echo esc_attr( $type_slug ); ?>" <?php selected( $selected_type, $type_slug ); ?>>
                                             <?php echo esc_html( $type_obj->labels->singular_name ); ?>
@@ -581,7 +617,7 @@ class AdminManager {
                                 <label for="khm-geo-post-id"><?php esc_html_e( 'Published Item', 'khm-seo' ); ?></label>
                             </th>
                             <td>
-                                <select id="khm-geo-post-id" name="post_id">
+                                <select id="khm-geo-post-id" name="khm_post_id">
                                     <option value="0"><?php esc_html_e( 'Select a published item...', 'khm-seo' ); ?></option>
                                     <?php foreach ( $posts as $post_item ) : ?>
                                         <option value="<?php echo esc_attr( $post_item->ID ); ?>" <?php selected( $selected_post && $selected_post->ID === $post_item->ID ); ?>>
@@ -648,7 +684,7 @@ class AdminManager {
             }
         }
 
-        wp_safe_redirect( admin_url( 'admin.php?page=khm-seo-geo-post&post_type=' . $post->post_type . '&post_id=' . $post_id . '&updated=1' ) );
+        wp_safe_redirect( admin_url( 'admin.php?page=khm-seo-geo-post&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post_id . '&updated=1' ) );
         exit;
     }
 
@@ -662,12 +698,12 @@ class AdminManager {
 
         $post_types = get_post_types( array( 'public' => true ), 'objects' );
         $default_post_type = array_key_first( $post_types );
-        $selected_type = isset( $_GET['post_type'] ) ? sanitize_key( $_GET['post_type'] ) : $default_post_type;
+        $selected_type = isset( $_GET['khm_post_type'] ) ? sanitize_key( $_GET['khm_post_type'] ) : $default_post_type;
         if ( empty( $selected_type ) || ! isset( $post_types[ $selected_type ] ) ) {
             $selected_type = $default_post_type;
         }
 
-        $post_id = isset( $_GET['post_id'] ) ? (int) $_GET['post_id'] : 0;
+        $post_id = isset( $_GET['khm_post_id'] ) ? (int) $_GET['khm_post_id'] : 0;
         $selected_post = $post_id ? get_post( $post_id ) : null;
         if ( $selected_post && 'publish' !== $selected_post->post_status ) {
             $selected_post = null;
@@ -697,7 +733,7 @@ class AdminManager {
                                 <label for="khm-health-post-type"><?php esc_html_e( 'Content Type', 'khm-seo' ); ?></label>
                             </th>
                             <td>
-                                <select id="khm-health-post-type" name="post_type">
+                                <select id="khm-health-post-type" name="khm_post_type">
                                     <?php foreach ( $post_types as $type_slug => $type_obj ) : ?>
                                         <option value="<?php echo esc_attr( $type_slug ); ?>" <?php selected( $selected_type, $type_slug ); ?>>
                                             <?php echo esc_html( $type_obj->labels->singular_name ); ?>
@@ -711,7 +747,7 @@ class AdminManager {
                                 <label for="khm-health-post-id"><?php esc_html_e( 'Published Item', 'khm-seo' ); ?></label>
                             </th>
                             <td>
-                                <select id="khm-health-post-id" name="post_id">
+                                <select id="khm-health-post-id" name="khm_post_id">
                                     <option value="0"><?php esc_html_e( 'Select a published item...', 'khm-seo' ); ?></option>
                                     <?php foreach ( $posts as $post_item ) : ?>
                                         <option value="<?php echo esc_attr( $post_item->ID ); ?>" <?php selected( $selected_post && $selected_post->ID === $post_item->ID ); ?>>
@@ -797,10 +833,10 @@ class AdminManager {
             return;
         }
 
-        $social_url = admin_url( 'admin.php?page=khm-seo-social-preview&post_type=' . $post->post_type . '&post_id=' . $post->ID );
-        $geo_url = admin_url( 'admin.php?page=khm-seo-geo-post&post_type=' . $post->post_type . '&post_id=' . $post->ID );
-        $health_url = admin_url( 'admin.php?page=khm-seo-post-health&post_type=' . $post->post_type . '&post_id=' . $post->ID );
-        $hub_url = admin_url( 'admin.php?page=khm-seo-boost-visibility&post_type=' . $post->post_type . '&post_id=' . $post->ID );
+        $social_url = admin_url( 'admin.php?page=khm-seo-social-preview&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID );
+        $geo_url = admin_url( 'admin.php?page=khm-seo-geo-post&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID );
+        $health_url = admin_url( 'admin.php?page=khm-seo-post-health&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID );
+        $hub_url = admin_url( 'admin.php?page=khm-seo-boost-visibility&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID );
 
         echo '<p><a class="button button-primary" href="' . esc_url( $hub_url ) . '">' . esc_html__( 'Boost Visibility', 'khm-seo' ) . '</a></p>';
         echo '<p><a class="button button-secondary" href="' . esc_url( $social_url ) . '">' . esc_html__( 'Social Media Manager', 'khm-seo' ) . '</a></p>';
@@ -820,12 +856,12 @@ class AdminManager {
             return $actions;
         }
 
-        $actions['boost_visibility'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-boost-visibility&post_type=' . $post->post_type . '&post_id=' . $post->ID ) ) . '">' . esc_html__( 'Boost Visibility', 'khm-seo' ) . '</a>';
-        $actions['smma_promote'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-boost-visibility&post_type=' . $post->post_type . '&post_id=' . $post->ID . '&smma_action=promote' ) ) . '">' . esc_html__( 'Promote', 'khm-seo' ) . '</a>';
-        $actions['smma_boost'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-boost-visibility&post_type=' . $post->post_type . '&post_id=' . $post->ID . '&smma_action=boost' ) ) . '">' . esc_html__( 'Boost', 'khm-seo' ) . '</a>';
-        $actions['boost_social'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-social-preview&post_type=' . $post->post_type . '&post_id=' . $post->ID ) ) . '">' . esc_html__( 'Social', 'khm-seo' ) . '</a>';
-        $actions['boost_geo'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-geo-post&post_type=' . $post->post_type . '&post_id=' . $post->ID ) ) . '">' . esc_html__( 'GEO', 'khm-seo' ) . '</a>';
-        $actions['boost_health'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-post-health&post_type=' . $post->post_type . '&post_id=' . $post->ID ) ) . '">' . esc_html__( 'Post Health', 'khm-seo' ) . '</a>';
+        $actions['boost_visibility'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-boost-visibility&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID ) ) . '">' . esc_html__( 'Boost Visibility', 'khm-seo' ) . '</a>';
+        $actions['smma_promote'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-boost-visibility&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID . '&smma_action=promote' ) ) . '">' . esc_html__( 'Promote', 'khm-seo' ) . '</a>';
+        $actions['smma_boost'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-boost-visibility&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID . '&smma_action=boost' ) ) . '">' . esc_html__( 'Boost', 'khm-seo' ) . '</a>';
+        $actions['boost_social'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-social-preview&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID ) ) . '">' . esc_html__( 'Social', 'khm-seo' ) . '</a>';
+        $actions['boost_geo'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-geo-post&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID ) ) . '">' . esc_html__( 'GEO', 'khm-seo' ) . '</a>';
+        $actions['boost_health'] = '<a href="' . esc_url( admin_url( 'admin.php?page=khm-seo-post-health&khm_post_type=' . $post->post_type . '&khm_post_id=' . $post->ID ) ) . '">' . esc_html__( 'Post Health', 'khm-seo' ) . '</a>';
 
         return $actions;
     }
@@ -868,6 +904,8 @@ class AdminManager {
      */
     public function meta_box_callback( $post ) {
         wp_nonce_field( 'khm_seo_meta_box', 'khm_seo_meta_box_nonce' );
+
+        $seo_agent_available = class_exists( 'KHM_SEO_AGENT\\API\\Rest_Api' );
         
         // Get current values
         $title = get_post_meta( $post->ID, '_khm_seo_title', true );
@@ -878,6 +916,20 @@ class AdminManager {
         $focus_keyword = get_post_meta( $post->ID, '_khm_seo_focus_keyword', true );
 
         echo '<div id="khm-seo-meta-box">';
+
+        // SEO Agent panel
+        echo '<div class="khm-seo-field khm-seo-agent-panel" style="padding:12px;border:1px solid #dcdcde;border-radius:4px;background:#fff;margin-bottom:12px;">';
+        echo '<label><strong>' . __( 'SEO Agent', 'khm-seo' ) . '</strong></label>';
+        if ( $seo_agent_available ) {
+            echo '<p class="description" style="margin:6px 0 10px;">' . __( 'Run an SEO audit, preview changes, then apply title/meta/schema actions.', 'khm-seo' ) . '</p>';
+            echo '<p style="margin:0 0 10px;"><button type="button" class="button button-primary" id="khm-seo-run-agent-btn">' . esc_html__( 'Run SEO Agent Audit', 'khm-seo' ) . '</button></p>';
+            echo '<div id="khm-seo-agent-status" class="description"></div>';
+            echo '<div id="khm-seo-agent-actions" style="margin-top:10px;"></div>';
+            echo '<div id="khm-seo-agent-preview" style="margin-top:10px;"></div>';
+        } else {
+            echo '<p class="description" style="margin:6px 0 0;color:#b32d2e;">' . __( 'KHM SEO Agent plugin is not active. Activate it to run editor agent workflows.', 'khm-seo' ) . '</p>';
+        }
+        echo '</div>';
         
         // SEO Title
         echo '<div class="khm-seo-field">';
@@ -929,6 +981,375 @@ class AdminManager {
     }
 
     /**
+     * Render SEO/GEO score panel directly under title so it stays at the top of the editor flow.
+     *
+     * @param \WP_Post $post Post object.
+     */
+    public function render_editor_score_panel( $post ) {
+        if ( ! $post instanceof \WP_Post ) {
+            return;
+        }
+
+        if ( ! in_array( $post->post_type, $this->supported_post_types, true ) ) {
+            return;
+        }
+
+        if ( ! current_user_can( 'edit_post', $post->ID ) ) {
+            return;
+        }
+
+        echo '<div id="khm-seo-score-tab" class="postbox" style="margin:12px 0 16px;">';
+        echo '<div class="postbox-header"><h2 class="hndle" style="padding:8px 12px;">' . esc_html__( 'Visibility Scores', 'khm-seo' ) . '</h2></div>';
+        echo '<div class="inside" style="margin:0;padding:12px;">';
+        $this->render_score_strip( $post->ID );
+        echo '</div>';
+        echo '</div>';
+    }
+
+    /**
+     * Render SEO and GEO score badges used by the editor panel.
+     *
+     * @param int $post_id Post ID.
+     */
+    private function render_score_strip( $post_id ) {
+        $score_snapshot = $this->get_post_score_snapshot( $post_id );
+        $seo_score = $score_snapshot['seo'];
+        $geo_score = $score_snapshot['geo'];
+        $seo_band = $this->get_quality_band( $seo_score );
+        $geo_band = $this->get_quality_band( $geo_score );
+
+        echo '<div class="khm-seo-score-strip" style="display:flex;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid #dcdcde;border-radius:4px;background:#f6f7f7;">';
+        echo '<div style="min-width:160px;">';
+        echo '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:#50575e;margin-bottom:4px;">' . esc_html__( 'SEO Score', 'khm-seo' ) . '</div>';
+        echo '<div id="khm-seo-score-badge" data-score="' . esc_attr( $seo_score ) . '" data-band="' . esc_attr( $seo_band['slug'] ) . '" style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:' . esc_attr( $seo_band['background'] ) . ';color:' . esc_attr( $seo_band['color'] ) . ';font-weight:600;">';
+        echo '<span id="khm-seo-score-label">' . esc_html( $seo_band['label'] ) . '</span>';
+        echo '<span id="khm-seo-score-value" style="font-size:12px;opacity:0.85;">' . esc_html( $seo_score > 0 ? $seo_score . '/100' : 'Not scored' ) . '</span>';
+        echo '</div>';
+        echo '</div>';
+        echo '<div style="min-width:160px;">';
+        echo '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:#50575e;margin-bottom:4px;">' . esc_html__( 'GEO Score', 'khm-seo' ) . '</div>';
+        echo '<div id="khm-geo-score-badge" data-score="' . esc_attr( $geo_score ) . '" data-band="' . esc_attr( $geo_band['slug'] ) . '" style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:' . esc_attr( $geo_band['background'] ) . ';color:' . esc_attr( $geo_band['color'] ) . ';font-weight:600;">';
+        echo '<span id="khm-geo-score-label">' . esc_html( $geo_band['label'] ) . '</span>';
+        echo '<span id="khm-geo-score-value" style="font-size:12px;opacity:0.85;">' . esc_html( $geo_score > 0 ? $geo_score . '/100' : 'Not scored' ) . '</span>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+    }
+
+    /**
+     * Resolve the best available SEO and GEO scores for a post.
+     *
+     * @param int $post_id Post ID.
+     * @return array{seo:int,geo:int}
+     */
+    private function get_post_score_snapshot( $post_id ) {
+        return array(
+            'seo' => $this->resolve_post_seo_score( $post_id ),
+            'geo' => $this->resolve_post_geo_score( $post_id ),
+        );
+    }
+
+    /**
+     * Resolve SEO score from post meta first, then analytics history.
+     *
+     * @param int $post_id Post ID.
+     * @return int
+     */
+    private function resolve_post_seo_score( $post_id ) {
+        $score = (int) get_post_meta( $post_id, '_khm_seo_score', true );
+        if ( $score > 0 ) {
+            return $score;
+        }
+
+        $fallback_score = $this->get_latest_analytics_seo_score( $post_id );
+        if ( $fallback_score > 0 ) {
+            update_post_meta( $post_id, '_khm_seo_score', $fallback_score );
+            return $fallback_score;
+        }
+
+        $calculated_score = $this->calculate_live_seo_score( $post_id );
+        if ( $calculated_score > 0 ) {
+            update_post_meta( $post_id, '_khm_seo_score', $calculated_score );
+            return $calculated_score;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Calculate a live SEO score for a post when no stored score exists.
+     *
+     * @param int $post_id Post ID.
+     * @return int
+     */
+    private function calculate_live_seo_score( $post_id ) {
+        if ( ! class_exists( '\\KHM_SEO\\Analysis\\AnalysisEngine' ) ) {
+            return 0;
+        }
+
+        $post = get_post( $post_id );
+        if ( ! $post ) {
+            return 0;
+        }
+
+        $analysis_engine = new \KHM_SEO\Analysis\AnalysisEngine( $this->get_live_analysis_engine_config() );
+        $analysis = $analysis_engine->analyze( array(
+            'post_id' => $post_id,
+            'title' => $post->post_title,
+            'content' => $post->post_content,
+            'meta_description' => get_post_meta( $post_id, '_khm_seo_description', true ),
+            'focus_keyword' => get_post_meta( $post_id, '_khm_seo_focus_keyword', true ),
+        ) );
+
+        if ( ! is_array( $analysis ) || ! isset( $analysis['overall_score'] ) ) {
+            return 0;
+        }
+
+        return max( 0, min( 100, (int) round( $analysis['overall_score'] ) ) );
+    }
+
+    /**
+     * Provide default analysis engine config for live score fallback.
+     *
+     * @return array
+     */
+    private function get_live_analysis_engine_config() {
+        $options = get_option( 'khm_seo_analysis', array() );
+
+        return wp_parse_args( $options, array(
+            'keywords' => array(
+                'target_density_min' => 0.5,
+                'target_density_max' => 2.5,
+                'max_keyword_stuffing' => 3.0,
+            ),
+            'readability' => array(
+                'max_sentence_length' => 20,
+                'max_paragraph_length' => 150,
+                'transition_word_threshold' => 30,
+                'passive_voice_threshold' => 10,
+            ),
+            'content' => array(
+                'min_word_count' => 300,
+                'optimal_word_count' => 1000,
+                'power_word_density' => 1.0,
+                'min_cta_count' => 1,
+            ),
+        ) );
+    }
+
+    /**
+     * Resolve GEO score from AnswerCard score first, then KHM cache, then derived AnswerCard scoring.
+     *
+     * @param int $post_id Post ID.
+     * @return int
+     */
+    private function resolve_post_geo_score( $post_id ) {
+        $answer_card_score = $this->get_answer_card_geo_meta_score( $post_id );
+        if ( $answer_card_score > 0 ) {
+            update_post_meta( $post_id, '_khm_geo_score', $answer_card_score );
+            return $answer_card_score;
+        }
+
+        $score = (int) get_post_meta( $post_id, '_khm_geo_score', true );
+        if ( $score > 0 ) {
+            return $score;
+        }
+
+        $derived_score = $this->calculate_answer_card_geo_score( $post_id );
+        if ( $derived_score > 0 ) {
+            update_post_meta( $post_id, '_khm_geo_score', $derived_score );
+            return $derived_score;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Read the GEO score produced by the AnswerCard block workflow.
+     *
+     * @param int $post_id Post ID.
+     * @return int
+     */
+    private function get_answer_card_geo_meta_score( $post_id ) {
+        $score = get_post_meta( $post_id, '_geo_score', true );
+        if ( '' === $score || null === $score ) {
+            return 0;
+        }
+
+        $score = (float) $score;
+        if ( $score <= 0 ) {
+            return 0;
+        }
+
+        if ( $score <= 1 ) {
+            $score *= 100;
+        }
+
+        return max( 0, min( 100, (int) round( $score ) ) );
+    }
+
+    /**
+     * Read the latest SEO score from analytics history for this post.
+     *
+     * @param int $post_id Post ID.
+     * @return int
+     */
+    private function get_latest_analytics_seo_score( $post_id ) {
+        if ( ! class_exists( '\\KHM_SEO\\Analytics\\AnalyticsDatabase' ) ) {
+            return 0;
+        }
+
+        $analytics_database = new \KHM_SEO\Analytics\AnalyticsDatabase();
+        $scores = $analytics_database->get_seo_scores( $post_id, 1 );
+        if ( ! is_array( $scores ) || empty( $scores ) ) {
+            return 0;
+        }
+
+        $latest_score = $scores[0];
+        $raw_score = 0;
+
+        if ( is_object( $latest_score ) && isset( $latest_score->overall_score ) ) {
+            $raw_score = $latest_score->overall_score;
+        } elseif ( is_array( $latest_score ) && isset( $latest_score['overall_score'] ) ) {
+            $raw_score = $latest_score['overall_score'];
+        }
+
+        return max( 0, min( 100, (int) round( $raw_score ) ) );
+    }
+
+    /**
+     * Derive a GEO score from any AnswerCard widgets attached to the post.
+     *
+     * @param int $post_id Post ID.
+     * @return int
+     */
+    private function calculate_answer_card_geo_score( $post_id ) {
+        if ( ! class_exists( '\\Elementor\\Plugin' ) || ! function_exists( 'khm_seo' ) || ! khm_seo() ) {
+            return 0;
+        }
+
+        $geo_manager = khm_seo()->get_geo_manager();
+        if ( ! $geo_manager || ! method_exists( $geo_manager, 'get_entity_manager' ) ) {
+            return 0;
+        }
+
+        $entity_manager = $geo_manager->get_entity_manager();
+        if ( ! $entity_manager || ! method_exists( $entity_manager, 'get_scoring_engine' ) ) {
+            return 0;
+        }
+
+        $document = \Elementor\Plugin::$instance->documents->get( $post_id );
+        if ( ! $document ) {
+            return 0;
+        }
+
+        $elements = $document->get_elements_data();
+        if ( ! is_array( $elements ) || empty( $elements ) ) {
+            return 0;
+        }
+
+        $answer_card_settings = array();
+        $this->collect_answer_card_settings( $elements, $answer_card_settings );
+        if ( empty( $answer_card_settings ) ) {
+            return 0;
+        }
+
+        $scoring_engine = $entity_manager->get_scoring_engine();
+        if ( ! $scoring_engine || ! method_exists( $scoring_engine, 'calculate_score' ) ) {
+            return 0;
+        }
+
+        $scores = array();
+        foreach ( $answer_card_settings as $settings ) {
+            $score_data = $scoring_engine->calculate_score(
+                is_array( $settings ) ? $settings : array(),
+                array( 'post_id' => $post_id )
+            );
+
+            $score = isset( $score_data['total_score'] ) ? (float) $score_data['total_score'] : 0;
+            if ( $score > 0 ) {
+                $scores[] = (int) round( $score * 100 );
+            }
+        }
+
+        if ( empty( $scores ) ) {
+            return 0;
+        }
+
+        return (int) round( array_sum( $scores ) / count( $scores ) );
+    }
+
+    /**
+     * Collect AnswerCard widget settings from Elementor element data.
+     *
+     * @param array $elements Elementor elements.
+     * @param array $settings_collector Accumulated AnswerCard settings.
+     * @return void
+     */
+    private function collect_answer_card_settings( $elements, &$settings_collector ) {
+        foreach ( $elements as $element ) {
+            if ( ! is_array( $element ) ) {
+                continue;
+            }
+
+            if ( isset( $element['widgetType'] ) && 'khm-answer-card' === $element['widgetType'] && ! empty( $element['settings'] ) && is_array( $element['settings'] ) ) {
+                $settings_collector[] = $element['settings'];
+            }
+
+            if ( ! empty( $element['elements'] ) && is_array( $element['elements'] ) ) {
+                $this->collect_answer_card_settings( $element['elements'], $settings_collector );
+            }
+        }
+    }
+
+    private function get_quality_band( $score ) {
+        $score = (int) $score;
+
+        if ( $score >= 80 ) {
+            return array(
+                'slug' => 'excellent',
+                'label' => __( 'Excellent', 'khm-seo' ),
+                'background' => '#dff3e4',
+                'color' => '#0f5132',
+            );
+        }
+
+        if ( $score >= 60 ) {
+            return array(
+                'slug' => 'good',
+                'label' => __( 'Good', 'khm-seo' ),
+                'background' => '#e7f1ff',
+                'color' => '#0b57d0',
+            );
+        }
+
+        if ( $score >= 40 ) {
+            return array(
+                'slug' => 'average',
+                'label' => __( 'Average', 'khm-seo' ),
+                'background' => '#fff4ce',
+                'color' => '#8a5300',
+            );
+        }
+
+        if ( $score > 0 ) {
+            return array(
+                'slug' => 'poor',
+                'label' => __( 'Poor', 'khm-seo' ),
+                'background' => '#fde7e9',
+                'color' => '#a4262c',
+            );
+        }
+
+        return array(
+            'slug' => 'unscored',
+            'label' => __( 'Not Scored', 'khm-seo' ),
+            'background' => '#edebe9',
+            'color' => '#323130',
+        );
+    }
+
+    /**
      * Save post meta.
      *
      * @param int $post_id Post ID.
@@ -969,6 +1390,19 @@ class AdminManager {
         // Only load on KHM SEO pages and post edit screens
         if ( strpos( $hook_suffix, 'khm-seo' ) !== false || 
              in_array( $hook_suffix, array( 'post.php', 'post-new.php' ) ) ) {
+            $current_post_id = 0;
+            if ( isset( $_GET['post'] ) ) {
+                $current_post_id = absint( $_GET['post'] );
+            } elseif ( isset( $_POST['post_ID'] ) ) {
+                $current_post_id = absint( $_POST['post_ID'] );
+            }
+
+            $current_scores = $current_post_id ? $this->get_post_score_snapshot( $current_post_id ) : array(
+                'seo' => 0,
+                'geo' => 0,
+            );
+            $current_seo_score = (int) $current_scores['seo'];
+            $current_geo_score = (int) $current_scores['geo'];
             
             wp_enqueue_style( 
                 'khm-seo-admin', 
@@ -977,10 +1411,17 @@ class AdminManager {
                 KHM_SEO_VERSION 
             );
             
+            $script_deps = array( 'jquery' );
+            if ( in_array( $hook_suffix, array( 'post.php', 'post-new.php' ), true ) ) {
+                $script_deps[] = 'wp-element';
+                $script_deps[] = 'wp-plugins';
+                $script_deps[] = 'wp-edit-post';
+            }
+
             wp_enqueue_script( 
                 'khm-seo-admin', 
                 KHM_SEO_PLUGIN_URL . 'assets/js/admin.js', 
-                array( 'jquery' ), 
+                $script_deps, 
                 KHM_SEO_VERSION, 
                 true 
             );
@@ -989,11 +1430,55 @@ class AdminManager {
             wp_localize_script( 'khm-seo-admin', 'khmSeo', array(
                 'ajax_url' => admin_url( 'admin-ajax.php' ),
                 'nonce'    => wp_create_nonce( 'khm_seo_ajax' ),
+                'seoAgent' => array(
+                    'enabled' => class_exists( 'KHM_SEO_AGENT\\API\\Rest_Api' ),
+                    'rest_url' => esc_url_raw( rest_url( 'khm-seo-agent/v1/' ) ),
+                    'rest_nonce' => wp_create_nonce( 'wp_rest' ),
+                ),
+                'editorScores' => array(
+                    'postId' => $current_post_id,
+                    'seo' => $current_seo_score,
+                    'geo' => $current_geo_score,
+                ),
+                'smma'     => array(
+                    'enabled' => class_exists( 'KH_SMMA\\Services\\SmmaGenerator' ),
+                    'rest_url' => esc_url_raw( rest_url( 'kh-smma/v1/' ) ),
+                    'rest_nonce' => wp_create_nonce( 'wp_rest' ),
+                    'dashboard_url' => admin_url( 'admin.php?page=kh-smma-dashboard' ),
+                    'default_channel' => 'linkedin',
+                    'default_budget_cents' => 5000,
+                    'default_currency' => 'AUD',
+                ),
                 'strings'  => array(
                     'analyzing' => __( 'Analyzing...', 'khm-seo' ),
                     'good'      => __( 'Good', 'khm-seo' ),
                     'needs_improvement' => __( 'Needs Improvement', 'khm-seo' ),
-                    'poor'      => __( 'Poor', 'khm-seo' )
+                    'poor'      => __( 'Poor', 'khm-seo' ),
+                    'smmaGenerating' => __( 'Generating social variant...', 'khm-seo' ),
+                    'smmaGenerated' => __( 'Variant ready for scheduling.', 'khm-seo' ),
+                    'smmaScheduling' => __( 'Queuing boost workflow...', 'khm-seo' ),
+                    'smmaScheduleReady' => __( 'Boost bundle prepared and awaiting manual export.', 'khm-seo' ),
+                    'smmaApprovalQueued' => __( 'Queued for sponsor approval.', 'khm-seo' ),
+                    'smmaSponsorRequired' => __( 'Boosting requires a sponsor policy on this post.', 'khm-seo' ),
+                    'smmaMissingDeps' => __( 'KH Social Manager is unavailable on this environment.', 'khm-seo' ),
+                    'smmaPromptEdit' => __( 'Edit the variant text before sending it back for compliance review:', 'khm-seo' ),
+                    'smmaPromptReject' => __( 'Reason for rejecting this schedule (optional):', 'khm-seo' ),
+                    'smmaPromptPreview' => __( 'Variant preview', 'khm-seo' ),
+                    'smmaApproved' => __( 'Schedule approved.', 'khm-seo' ),
+                    'smmaRejected' => __( 'Schedule rejected.', 'khm-seo' ),
+                    'smmaUpdated' => __( 'Variant updated.', 'khm-seo' ),
+                    'seoAgentRunning' => __( 'Running SEO Agent audit...', 'khm-seo' ),
+                    'seoAgentQueued' => __( 'Audit queued, waiting for model output...', 'khm-seo' ),
+                    'seoAgentNoActions' => __( 'No apply actions returned by SEO Agent.', 'khm-seo' ),
+                    'seoAgentPreview' => __( 'Preview changes', 'khm-seo' ),
+                    'seoAgentApply' => __( 'Apply selected actions', 'khm-seo' ),
+                    'seoAgentApplied' => __( 'SEO Agent changes applied and synced to editor fields and score badges instantly. No refresh is required. Save only if you also changed other post content.', 'khm-seo' ),
+                    'seoAgentConfirmSchema' => __( 'Apply schema configuration changes as well? This updates stored schema settings immediately.', 'khm-seo' ),
+                    'seoAgentError' => __( 'SEO Agent request failed.', 'khm-seo' ),
+                    'visibilityScoresTitle' => __( 'Visibility Scores', 'khm-seo' ),
+                    'seoScoreTitle' => __( 'SEO Score', 'khm-seo' ),
+                    'geoScoreTitle' => __( 'GEO Score', 'khm-seo' ),
+                    'scoreNotScored' => __( 'Not scored', 'khm-seo' )
                 )
             ) );
         }
