@@ -1,0 +1,5 @@
+{
+  "event": "checkout.session.completed",
+  "session_id": "sess_test_001",
+  "sponsor_id": "sponsor_test_001"
+}
