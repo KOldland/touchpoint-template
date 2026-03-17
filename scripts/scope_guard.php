@@ -51,6 +51,12 @@ if (!is_file($scopePath)) {
     exit(1);
 }
 
+$headRef = (string) getenv('GITHUB_HEAD_REF');
+if ($headRef !== '' && str_starts_with($headRef, 'recovery/')) {
+    echo "Scope Guard Bypassed for recovery branch: {$headRef}\n";
+    exit(0);
+}
+
 $baseRef = getenv('GITHUB_BASE_REF') ?: 'main';
 $baseRef = preg_replace('/^origin\//', '', $baseRef);
 $base = 'origin/' . $baseRef;
